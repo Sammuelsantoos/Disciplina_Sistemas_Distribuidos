@@ -39,11 +39,11 @@ def main():
             
             rtt = (recv_time - send_time) * 1000
             rtts.append(rtt)
-            print(f"[{sequence_number}] Resposta de {server_address}: rtt={rtt:.2f} ms")
+            print(f"Resposta de {server_address}: seq={sequence_number} rtt={rtt:.2f} ms")
             
         except socket.timeout:
             packets_lost += 1
-            print(f"[{sequence_number}] Solicitação de ping expirou (Timeout).")
+            print(f"Solicitação de ping seq={sequence_number} expirou (Timeout).")
 
     client_socket.close()
 
