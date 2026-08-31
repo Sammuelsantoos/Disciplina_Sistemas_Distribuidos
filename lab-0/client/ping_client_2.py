@@ -1,3 +1,5 @@
+# Exercício 2: Modificar o programa de modo que ele envie exatamente 1 Ping por segundo, corrigindo atrasos de resposta ou timeout.
+
 import sys
 import time
 import socket
@@ -7,19 +9,26 @@ def main():
         print("Uso correto: python ping_client.py <host> <port>")
         sys.exit(1)
 
-    # CORREÇÃO: Pegando os índices corretos dos argumentos da linha de comando
     host = sys.argv[1]
     port = int(sys.argv[2])
 
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client_socket.settimeout(1.0) # 1 segundo de timeout
+    client_socket.settimeout(0.99) 
 
     rtts = []
     packets_lost = 0
 
-    print(f"Enviando 10 pings para {host}:{port} via UDP...\n")
+    print(f"Enviando 10 pings espaçados rigidamente em 1 segundo para {host}:{port}...\n")
+
+    base_time = time.time()
 
     for sequence_number in range(10):
+        scheduled_send_time = base_time + (sequence_number * 1.0)
+        
+        now = time.time()
+        if scheduled_send_time > now:
+            time.sleep(scheduled_send_time - now)
+            
         send_time = time.time()
         message = f"PING {sequence_number} {send_time}\r\n"
         
@@ -30,14 +39,11 @@ def main():
             
             rtt = (recv_time - send_time) * 1000
             rtts.append(rtt)
-            print(f"Resposta de {server_address}: seq={sequence_number} rtt={rtt:.2f} ms")
+            print(f"[{sequence_number}] Resposta de {server_address}: rtt={rtt:.2f} ms")
             
         except socket.timeout:
             packets_lost += 1
-            print(f"Solicitação de ping seq={sequence_number} expirou (Timeout).")
-        
-        if sequence_number < 9:
-            time.sleep(1.0)
+            print(f"[{sequence_number}] Solicitação de ping expirou (Timeout).")
 
     client_socket.close()
 
