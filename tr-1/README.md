@@ -1,6 +1,6 @@
 # Sistema de Notificações de Esportes
 
-Este projeto consiste em um **Sistema Distribuído de Notificação de Esportes em Tempo Real** desenvolvido em **Python** para a disciplina de Sistemas Distribuídos da Universidade Federal do Ceará (UFC) – Campus Quixadá.
+Este projeto consiste em um **Sistema Distribuído de Notificação de Esportes** desenvolvido em **Python** para a disciplina de Sistemas Distribuídos da Universidade Federal do Ceará (UFC) – Campus Quixadá.
 
 O sistema simula uma central esportiva onde administradores registram partidas e eventos (gols, cartões, fim de jogo) via **Sockets TCP**, e múltiplos clientes (torcedores) recebem atualizações instantâneas via **Sockets UDP Multicast**.
 
@@ -9,6 +9,22 @@ O sistema simula uma central esportiva onde administradores registram partidas e
 ## Autores
 1. Rubens Rabelo - SI - 555497
 2. Samuel Augusto - ES - 601930
+
+### Separação das tarefas
+
+| Módulo / Componente | Escopo Técnico | Pessoa A | Pessoa B |
+|---|---|---|---|
+| Modelos Compartilhados (`src/shared/models/`) | Criação das classes POJO (`match.py` e `match_event.py`) com conversão para formato string. | X | |
+| Streams de Saída (`src/shared/streams/`) | Desenvolvimento do gerador de fluxos de escrita estruturada em CSV e rede TCP (`event_output.py`). | X | |
+| Streams de Entrada (`src/shared/streams/`) | Desenvolvimento do leitor de fluxos com buffer para reconstrução de dados via CSV e rede TCP (`event_input.py`). | | X |
+| Servidor Principal (`src/server/`) | Arquitetura básica do socket TCP multithread concorrido do `main_server.py`. | X | |
+| Lógica do Servidor (`src/server/services/`) | Gerenciamento interno do placar das partidas em memória no arquivo `match_service.py`. | | X |
+| Emissão de Notificações (`src/server/services/`) | Configuração do socket de envio UDP Multicast e formatação de alertas em JSON no arquivo `notify_service.py`. | X | |
+| Painel de Controle (`src/client/`) | Desenvolvimento do `admin_client.py` (Unicast TCP) para envio estruturado de comandos do administrador. | | X |
+| Terminal do Torcedor (`src/client/`) | Desenvolvimento do `viewer_client.py` com interface local e thread em segundo plano ouvindo UDP Multicast. | X | |
+| Massa de Testes (`data/`) | Criação de scripts locais para leitura e escrita em arquivos `.csv` e arquivos de teste para validar o InputStream. | | X |
+| Integração Final | Testes de concorrência com múltiplos torcedores conectados de forma simultânea e polimento do repositório. | X | X |
+
 
 ---
 
@@ -23,9 +39,9 @@ O sistema simula uma central esportiva onde administradores registram partidas e
 
 ---
 
-## Estrutura de Classes (POJOs e Serviços)
+## Estrutura de Classes
 
-### Classes de Dados (POJOs)
+### Classes de Dados
 * **`Match`**: Representa uma partida de futebol, contendo `match_id`, `home_team`, `away_team`, `home_score` e `away_score`.
 * **`MatchEvent`**: Representa um acontecimento no jogo, contendo `event_id`, `match_id`, `event_type` (GOL, CARD, END), `description` e `timestamp`.
 
@@ -48,7 +64,7 @@ live-sports-system/
 │   │
 │   ├── shared/                  # Componentes comuns compartilhados
 │   │   ├── __init__.py
-│   │   ├── models/              # Classes de Dados (POJOs)
+│   │   ├── models/              # Classes de Dados
 │   │   │   ├── __init__.py
 │   │   │   ├── match.py         # Classe Match
 │   │   │   └── match_event.py   # Classe MatchEvent
