@@ -62,36 +62,36 @@ live-sports-system/
 ├── src/
 │   ├── __init__.py
 │   │
-│   ├── shared/                  # Componentes comuns compartilhados
+│   ├── shared/                     # Componentes comuns compartilhados
 │   │   ├── __init__.py
-│   │   ├── models/              # Classes de Dados
+│   │   ├── models/                 # Classes de Dados
 │   │   │   ├── __init__.py
-│   │   │   ├── match.py         # Classe Match
-│   │   │   └── match_event.py   # Classe MatchEvent
+│   │   │   ├── match.py            # Classe Match
+│   │   │   └── match_event.py      # Classe MatchEvent
 │   │   │
-│   │   └── streams/             # Abstrações de Input/Output Streams
+│   │   └── streams/                # Abstrações de Input/Output Streams
 │   │       ├── __init__.py
-│   │       ├── event_input.py   # Classe MatchEventInputStream
-│   │       └── event_output.py  # Classe MatchEventOutputStream
+│   │       ├── event_input.py      # Classe MatchEventInputStream
+│   │       └── event_output.py     # Classe MatchEventOutputStream
 │   │
-│   ├── server/                  # Módulos exclusivos do Servidor
+│   ├── server/                     # Módulos exclusivos do Servidor
 │   │   ├── __init__.py
-│   │   ├── services/            # Serviços lógicos e de rede do backend
+│   │   ├── services/               # Serviços lógicos e de rede do backend
 │   │   │   ├── __init__.py
-│   │   │   ├── match_service.py # Gerenciamento do placar e partidas
-│   │   │   └── notify_service.py# Controle de disparo do Multicast UDP
-│   │   └── main_server.py       # Servidor Central (TCP Multithread + UDP Multicast)
+│   │   │   ├── match_service.py    # Gerenciamento do placar e partidas
+│   │   │   └── notify_service.py   # Controle de disparo do Multicast UDP
+│   │   └── main_server.py          # Servidor Central (TCP Multithread + UDP Multicast)
 │   │
-│   └── client/                  # Módulos exclusivos dos Clientes
+│   └── client/                     # Módulos exclusivos dos Clientes
 │       ├── __init__.py
-│       ├── admin_client.py      # Cliente Unicast TCP (Painel do Administrador)
-│       └── viewer_client.py     # Cliente Multicast UDP (Terminal do Torcedor)
+│       ├── admin_client.py         # Cliente Unicast TCP (Painel do Administrador)
+│       └── viewer_client.py        # Cliente Multicast UDP (Terminal do Torcedor)
 │
-├── data/                        # Pasta para testes de persistência em arquivos estruturados
-│   ├── input_test.csv           # Dados estruturados de origem para testes do InputStream
-│   └── output_test.csv          # Destino de escrita estruturada para testes do OutputStream
+├── data/                           # Pasta para testes de persistência em arquivos estruturados
+│   ├── input_test.csv              # Dados estruturados de origem para testes do InputStream
+│   └── output_test.csv             # Destino de escrita estruturada para testes do OutputStream
 │
-└── README.md                    # Documentação do projeto
+└── README.md                       # Documentação do projeto
 ```
 
 ---
