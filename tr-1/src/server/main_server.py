@@ -1,18 +1,18 @@
 import socket
 import threading
 import json
-from src.server.services import MatchService
-from src.server.services import NotificationService
+from src.server.services.match_service import MatchService
+from src.server.services.notify_service import NotificationService
 
 class LiveSportsServer:
     """
-    Central server that coordinates sports matches and broadcasts real-time 
-    events using multithreaded TCP connections and UDP Multicast channels.
+    Servidor central que coordena partidas esportivas e transmite eventos em 
+    tempo real usando conexoes TCP multithreading e canais UDP Multicast.
     """
     def __init__(self, tcp_host: str = "0.0.0.0", tcp_port: int = 5000):
         """
-        Initializes server communication sockets, application services, 
-        and connection management locks.
+        Inicializa os sockets de comunicacao do servidor, servicos da aplicacao 
+        e travas de gerenciamento de conexao.
         """
         self.tcp_host = tcp_host
         self.tcp_port = tcp_port
@@ -28,8 +28,8 @@ class LiveSportsServer:
 
     def start(self) -> None:
         """
-        Binds the TCP socket to the designated host and port, enters an 
-        infinite listening loop, and spawns client handling threads.
+        Vincula o socket TCP ao host e porta designados, entra em um loop 
+        infinito de escuta e gera threads de manipulacao de clientes.
         """
         self.tcp_socket.bind((self.tcp_host, self.tcp_port))
         self.tcp_socket.listen(5)
@@ -55,8 +55,8 @@ class LiveSportsServer:
 
     def handle_admin_client(self, client_socket, client_address) -> None:
         """
-        Manages the life cycle of an individual connected administrator panel 
-        over TCP, receiving raw requests and delivering encoded replies.
+        Gerencia o ciclo de vida de um painel administrativo individual conectado 
+        via TCP, recebendo requisicoes brutas e entregando respostas codificadas.
         """
         print(f"Novo painel administrativo conectado via TCP: {client_address}")
         buffer = ""
@@ -86,8 +86,8 @@ class LiveSportsServer:
 
     def process_request(self, raw_request: str) -> dict:
         """
-        Parses incoming raw string messages into JSON data structures 
-        and routes them toward their corresponding handler action.
+        Converte mensagens de texto brutas recebidas em estruturas de dados JSON 
+        e as roteia para a acao manipuladora correspondente.
         """
         try:
             request_data = json.loads(raw_request)
@@ -104,8 +104,8 @@ class LiveSportsServer:
 
     def _handle_create_match(self, data: dict) -> dict:
         """
-        Instructs the internal match service to allocate a new football fixture 
-        and transmits a notification to the multicast cluster.
+        Instrui o servico interno de partidas a alocar um novo jogo de futebol 
+        e transmite uma notificacao para o grupo multicast.
         """
         match_id = data.get("match_id")
         home = data.get("home_team")
@@ -126,8 +126,8 @@ class LiveSportsServer:
 
     def _handle_register_event(self, data: dict) -> dict:
         """
-        Forwards event entries to the database layer, dynamically computes 
-        score updates, and broadcasts the incident via UDP multicast.
+        Encaminha os registros de eventos para a camada de banco de dados, calcula 
+        dinamicamente as atualizacoes de placar e transmite o ocorrido via UDP multicast.
         """
         match_id = data.get("match_id")
         event_id = data.get("event_id")
@@ -151,8 +151,8 @@ class LiveSportsServer:
 
     def _cleanup(self) -> None:
         """
-        Gracefully terminates active channels, releasing the primary TCP socket 
-        listeners and backend services securely.
+        Encerra conexoes ativas de forma segura, liberando os escutadores do 
+        socket TCP principal e os servicos de backend com seguranca.
         """
         print("Fechando conexoes pendentes...")
         with self.lock:
