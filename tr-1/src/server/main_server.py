@@ -1,8 +1,8 @@
 import socket
 import threading
 import json
-from src.server.services.match_service import MatchService
-from src.server.services.notify_service import NotificationService
+from src.server.services import MatchService
+from src.server.services import NotificationService
 
 class LiveSportsServer:
     """

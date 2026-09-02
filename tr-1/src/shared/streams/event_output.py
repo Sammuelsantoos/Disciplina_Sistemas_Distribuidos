@@ -6,7 +6,7 @@ from src.shared.models import MatchEvent
 class MatchEventOutputStream:
     def __init__(self, destination_stream, event_array: List[MatchEvent], count: int):
         """
-        Construtor da subclasse/wrapper de fluxo de saída (Questão 1-a).
+        Construtor da subclasse/wrapper de fluxo de saída.
         
         :param destination_stream: O objeto de destino para onde os dados serão enviados.
                                    Pode ser: sys.stdout, um arquivo aberto para escrita ('w' ou 'wb'),
@@ -20,8 +20,7 @@ class MatchEventOutputStream:
 
     def write_all(self) -> None:
         """
-        Percorre a quantidade 'count' de objetos do array, serializa cada um deles
-        para texto delimitado por formato CSV e despacha os bytes para o destino configurado.
+        Percorre a quantidade 'count' de objetos do array, serializa cada um deles para texto delimitado por formato CSV e despacha os bytes para o destino configurado.
         """
         for i in range(self.count):
             event = self.events[i]
