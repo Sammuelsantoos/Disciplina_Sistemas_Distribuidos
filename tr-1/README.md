@@ -118,6 +118,15 @@ Você pode abrir múltiplos terminais para simular diferentes torcedores na rede
 python src/client/viewer_client.py
 ```
 
+### 4. Validar os componentes da Pessoa B
+
+Na raiz de `tr-1`, execute a leitura manual da massa CSV e os testes automatizados:
+
+```bash
+python -m src.data.event_input_test
+python -m unittest discover -s tests -v
+```
+
 ---
 
 ## Formato das Mensagens de Notificação (JSON)
