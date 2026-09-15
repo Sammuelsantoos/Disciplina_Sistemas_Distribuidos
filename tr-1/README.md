@@ -12,7 +12,7 @@ O sistema simula uma central esportiva onde administradores registram partidas e
 
 ### Separação das tarefas
 
-| Módulo / Componente | Escopo Técnico | Pessoa A | Pessoa B |
+| Módulo / Componente | Escopo Técnico | Rubens Rabelo | Samuel Augusto |
 |---|---|---|---|
 | Modelos Compartilhados (`src/shared/models/`) | Criação das classes POJO (`match.py` e `match_event.py`) com conversão para formato string. | X | |
 | Streams de Saída (`src/shared/streams/`) | Desenvolvimento do gerador de fluxos de escrita estruturada em CSV e rede TCP (`event_output.py`). | X | |
