@@ -5,6 +5,7 @@ import unittest
 from tests.integration.test_streams import MatchEventInputStreamTests
 from tests.integration.test_services import MatchServiceTests
 from tests.integration.test_admin_client import AdminClientTests
+from tests.integration.test_viewer_client import ViewerClientTests
 
 
 def main() -> None:
@@ -17,6 +18,7 @@ def main() -> None:
     suite.addTests(loader.loadTestsFromTestCase(MatchEventInputStreamTests))
     suite.addTests(loader.loadTestsFromTestCase(MatchServiceTests))
     suite.addTests(loader.loadTestsFromTestCase(AdminClientTests))
+    suite.addTests(loader.loadTestsFromTestCase(ViewerClientTests))
 
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
