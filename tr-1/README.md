@@ -25,7 +25,6 @@ O sistema simula uma central esportiva onde administradores registram partidas e
 | Massa de Testes (`data/`) | Criação de scripts locais para leitura e escrita em arquivos `.csv` e arquivos de teste para validar o InputStream. | | X |
 | Integração Final | Testes de concorrência com múltiplos torcedores conectados de forma simultânea e polimento do repositório. | X | X |
 
-
 ---
 
 ## Tecnologias e Conceitos Utilizados
@@ -34,7 +33,7 @@ O sistema simula uma central esportiva onde administradores registram partidas e
 * **Comunicação Unicast (TCP):** Utilizado para autenticação de clientes, conexões estáveis e envio de requisições estruturadas (Requests/Replies).
 * **Comunicação Multicast (UDP):** Utilizado para a difusão eficiente de notificações em tempo real para múltiplos clientes simultâneos através do IP Classe D (230.0.0.1).
 * **Multithreading:** Implementação de múltiplas threads no Servidor (para conexões concorrentes) e no Cliente (uma thread para interface do usuário e outra dedicada a escutar o canal UDP).
-* **External Data Representation (Serialization):** Empacotamento manual e conversão dos objetos de dados em strings formatadas em JSON antes do envio pela rede.
+* **External Data Representation (Serialization):** Empacotamento manual e conversão dos objetos de dados em strings formatadas in JSON antes do envio pela rede.
 * **Persistência de Dados (CSV):** Armazenamento estruturado de fluxos de eventos históricos em formato de texto delimitado para leitura e escrita baseada em streams.
 
 ---
@@ -54,89 +53,70 @@ Para atender aos requisitos de acesso e abstração de Streams, criamos componen
 
 ## Estrutura de Diretórios
 
-A organização das pastas do projeto separa as responsabilidades explicitamente entre o ambiente do servidor e as aplicações dos clientes:
+A organização das pastas do projeto separa as responsabilidades explicitamente entre o ambiente do servidor, as aplicações dos clientes e a pirâmide de testes completa:
 
 ```bash
 live-sports-system/
 │
 ├── src/
 │   ├── __init__.py
-│   │
 │   ├── shared/                     # Componentes comuns compartilhados
-│   │   ├── __init__.py
-│   │   ├── models/                 # Classes de Dados
-│   │   │   ├── __init__.py
-│   │   │   ├── match.py            # Classe Match
-│   │   │   └── match_event.py      # Classe MatchEvent
-│   │   │
+│   │   ├── models/                 # Classes de Dados (Match, MatchEvent)
 │   │   └── streams/                # Abstrações de Input/Output Streams
-│   │       ├── __init__.py
-│   │       ├── event_input.py      # Classe MatchEventInputStream
-│   │       └── event_output.py     # Classe MatchEventOutputStream
-│   │
-│   ├── server/                     # Módulos exclusivos do Servidor
-│   │   ├── __init__.py
-│   │   ├── services/               # Serviços lógicos e de rede do backend
-│   │   │   ├── __init__.py
-│   │   │   ├── match_service.py    # Gerenciamento do placar e partidas
-│   │   │   └── notify_service.py   # Controle de disparo do Multicast UDP
-│   │   └── main_server.py          # Servidor Central (TCP Multithread + UDP Multicast)
-│   │
-│   └── client/                     # Módulos exclusivos dos Clientes
-│       ├── __init__.py
-│       ├── admin_client.py         # Cliente Unicast TCP (Painel do Administrador)
-│       └── viewer_client.py        # Cliente Multicast UDP (Terminal do Torcedor)
+│   ├── server/                     # Módulos exclusivos do Servidor (main_server e services)
+│   └── client/                     # Módulos exclusivos dos Clientes (admin e viewer)
 │
-├── data/                           # Pasta para testes de persistência em arquivos estruturados
-│   ├── input_test.csv              # Dados estruturados de origem para testes do InputStream
-│   └── output_test.csv             # Destino de escrita estruturada para testes do OutputStream
+├── data/                           # Pasta para persistência em arquivos estruturados
+│   └── event_test.csv              # Massa compartilhada de dados de eventos
 │
-└── README.md                       # Documentação do projeto
+└── tests/                          # Suíte de Testes Automatizados e Manuais
+    ├── unit/                       # Testes Unitários Isolados e Scripts Manuais
+    ├── integration/                # Testes de Integração de Componentes e Redes
+    └── e2e/                        # Testes de Ponta a Ponta com Sockets Reais
 ```
 
 ---
 
-## Como Executar o Projeto
+## Como Executar o Projeto de Forma Manual
 
-Certifique-se de ter o Python 3 instalado em sua máquina. Não são necessárias bibliotecas externas.
+Para inicializar a topologia de rede local (Servidor Central, Painel Administrativo TCP e múltiplos Terminais de Torcedores UDP Multicast), siga o guia passo a passo detalhado no arquivo complementar de instruções:
 
-### 1. Iniciar o Servidor Central
-O servidor gerencia o estado global das partidas, persiste os históricos em arquivos CSV, e lida com as requisições concorrentes TCP e transmissões UDP.
+**[Clique aqui para abrir o MANUAL.md](./docs/MANUAL_TEST.md)**
+
+---
+
+## Suíte de Testes Automatizados
+
+O sistema foi blindado contra bugs e regressões usando uma pirâmide completa de testes baseada no framework nativo `unittest` do Python. Certifique-se de executar todos os comandos **a partir do diretório raiz do projeto** (`tr-1`).
+
+### 1. Testes de Unidade (`tests/unit/`)
+Validações de lógica isolada sem dependência de rede, englobando serialização CSV de modelos de dados e formatação estrita de payloads JSON.
 ```bash
-python src/server/main_server.py
+python3 -m tests.unit.main_unit
 ```
 
-### 2. Iniciar o Painel Administrativo (Client TCP)
-Utilizado para registrar novas partidas e disparar eventos em tempo real.
+### 2. Testes de Integração (`tests/integration/`)
+Valida o acoplamento entre os componentes e buffers de rede, cobrindo concorrência thread-safe de dados, fragmentação de fluxos TCP e decodificação assíncrona UDP Multicast.
 ```bash
-python src/client/admin_client.py
+python3 -m tests.integration.main_integration
 ```
 
-### 3. Iniciar múltiplos Clientes Torcedores (Clients Multicast)
-Você pode abrir múltiplos terminais para simular diferentes torcedores na rede recebendo notificações simultaneamente.
+### 3. Testes de Ponta a Ponta / End-to-End (`tests/e2e/`)
+Abre sockets reais de sistema operacional utilizando portas efêmeras dinâmicas alocadas pelo SO para orquestrar fluxos de requisição e resposta completos simulando múltiplos clientes.
 ```bash
-python src/client/viewer_client.py
-```
-
-### 4. Validar os componentes da Pessoa B
-
-Na raiz de `tr-1`, execute a leitura manual da massa CSV e os testes automatizados:
-
-```bash
-python -m src.data.event_input_test
-python -m unittest discover -s tests -v
+python3 -m tests.e2e.main_e2e
 ```
 
 ---
 
-## Formato das Mensagens de Notificação (JSON)
+## Formatos das Mensagens de Notificação (JSON)
 
 Sempre que um evento relevante acontece, o servidor empacota a informação e faz o envio Multicast no seguinte formato padronizado:
 
 ```json
 {
-  "type": "NOTIFICATION",
-  "message": "GOAL! Flamengo 1 x 0 Vasco (42')",
+  "tipo": "GOL",
+  "mensagem": "[GOL] Ceara 1 x 0 Fortaleza - Gol do mandante",
   "timestamp": 1793542400
 }
 ```
@@ -145,4 +125,4 @@ Sempre que um evento relevante acontece, o servidor empacota a informação e fa
 
 ## Observações Acadêmicas
 
-Os projetos contidos neste repositório possuem finalidade acadêmica e foram desenvolvidos para consolidar conhecimentos na disciplina de Sistemas Distribuídos.
+Este projeto possui finalidade estritamente acadêmica e foi desenvolvido com o objetivo de consolidar os conhecimentos práticos adquiridos na disciplina de Sistemas Distribuídos.
