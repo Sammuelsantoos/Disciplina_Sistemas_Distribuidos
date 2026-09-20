@@ -25,11 +25,9 @@ def run_output() -> None:
     screen_stream.write_all()
 
     print("\n--- TESTE EM ARQUIVO ---")
-    # parents[2] sobe de tests/unit/ para a raiz do projeto (tr-1)
     root_project = Path(__file__).resolve().parents[2]
-    shared_file = root_project / "src" / "data" / "input_test.csv"
+    shared_file = root_project / "src" / "data" / "event_test.csv"
 
-    # Abre em modo 'w' para reescrever o arquivo compartilhado com dados limpos
     with shared_file.open("w", encoding="utf-8") as file_destination:
         file_stream = MatchEventOutputStream(file_destination, my_events, count=3)
         file_stream.write_all()
