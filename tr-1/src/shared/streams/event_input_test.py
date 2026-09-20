@@ -1,7 +1,7 @@
 """Teste manual da leitura de eventos CSV.
 
 Execute a partir da raiz ``tr-1`` com:
-``python -m src.data.event_input_test``.
+``python -m src.shared.streams.event_input_test``.
 """
 
 from pathlib import Path
@@ -10,6 +10,7 @@ from src.shared.streams import MatchEventInputStream
 
 
 def main() -> None:
+    """Busca o arquivo CSV de teste e processa seu fluxo de dados."""
     root_project = Path(__file__).resolve().parents[3]
     input_file = root_project / "src" / "data" / "input_test.csv"
 

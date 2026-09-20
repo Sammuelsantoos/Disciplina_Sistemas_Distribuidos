@@ -1,8 +1,15 @@
+"""Módulo do servidor central de esportes (LiveSportsServer).
+
+Este módulo coordena o recebimento de comandos via conexões TCP (Admin)
+e realiza a difusão de eventos esportivos via UDP Multicast (Viewer).
+"""
+
 import socket
 import threading
 import json
 from src.server.services import MatchService
 from src.server.services import NotificationService
+
 
 class LiveSportsServer:
     """
@@ -16,10 +23,10 @@ class LiveSportsServer:
         """
         self.tcp_host = tcp_host
         self.tcp_port = tcp_port
-        
+
         self.match_service = MatchService()
         self.notify_service = NotificationService()
-        
+
         self.lock = threading.Lock()
         self.active_connections = []
 
@@ -41,10 +48,10 @@ class LiveSportsServer:
                 client_socket, client_address = self.tcp_socket.accept()
                 with self.lock:
                     self.active_connections.append(client_socket)
-                
+
                 client_thread = threading.Thread(
-                    target=self.handle_admin_client, 
-                    args=(client_socket, client_address), 
+                    target=self.handle_admin_client,
+                    args=(client_socket, client_address),
                     daemon=True
                 )
                 client_thread.start()
@@ -55,8 +62,8 @@ class LiveSportsServer:
 
     def handle_admin_client(self, client_socket, client_address) -> None:
         """
-        Gerencia o ciclo de vida de um painel administrativo individual conectado 
-        via TCP, recebendo requisicoes brutas e entregando respostas codificadas.
+        Gerencia o ciclo de vida de um painel administrativo conectado via TCP,
+        recebendo requisicoes brutas e entregando respostas codificadas.
         """
         print(f"Novo painel administrativo conectado via TCP: {client_address}")
         buffer = ""
@@ -65,13 +72,13 @@ class LiveSportsServer:
                 data = client_socket.recv(1024).decode("utf-8")
                 if not data:
                     break
-                
+
                 buffer += data
                 while "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)
                     if not line.strip():
                         continue
-                        
+
                     response = self.process_request(line)
                     reply_bytes = (json.dumps(response) + "\n").encode("utf-8")
                     client_socket.sendall(reply_bytes)
@@ -119,15 +126,16 @@ class LiveSportsServer:
                 return {"status": "ERROR", "message": str(error)}
 
         self.notify_service.send_notification(
-            notification_type="NOTIFICACAO", 
+            notification_type="NOTIFICACAO",
             message=f"Nova partida iniciada no campeonato: {home} x {away}"
         )
         return {"status": "SUCCESS", "message": "Partida cadastrada com sucesso"}
 
     def _handle_register_event(self, data: dict) -> dict:
         """
-        Encaminha os registros de eventos para a camada de banco de dados, calcula 
-        dinamicamente as atualizacoes de placar e transmite o ocorrido via UDP multicast.
+        Encaminha os registros de eventos para a camada de banco de dados,
+        calcula dinamicamente as atualizacoes de placar e transmite o ocorrido
+        via UDP multicast.
         """
         match_id = data.get("match_id")
         event_id = data.get("event_id")
@@ -144,9 +152,15 @@ class LiveSportsServer:
                 return {"status": "ERROR", "message": str(error)}
 
         alert_label = "ALERTA" if event_type == "GOL" else "ATUALIZACAO"
-        display_message = f"[{event_type}] {match_obj.home_team} {match_obj.home_score} x {match_obj.away_score} {match_obj.away_team} - {description}"
-        
-        self.notify_service.send_notification(notification_type=alert_label, message=display_message)
+        display_message = (
+            f"[{event_type}] {match_obj.home_team} {match_obj.home_score} x "
+            f"{match_obj.away_score} {match_obj.away_team} - {description}"
+        )
+
+        self.notify_service.send_notification(
+            notification_type=alert_label,
+            message=display_message
+        )
         return {"status": "SUCCESS", "message": "Evento processado e enviado para a rede"}
 
     def _cleanup(self) -> None:
@@ -161,6 +175,7 @@ class LiveSportsServer:
         self.tcp_socket.close()
         self.notify_service.close()
         print("Servidor finalizado com sucesso.")
+
 
 if __name__ == "__main__":
     server = LiveSportsServer()

@@ -47,7 +47,9 @@ class MatchService:
         description: str,
         team: str | None = None,
     ) -> MatchEvent:
-        """Registra um evento e atualiza o placar quando o evento é um gol."""
+        """
+        Registra um evento e atualiza o placar quando o evento é um gol.
+        """
         try:
             normalized_event_id = int(event_id)
             normalized_match_id = int(match_id)

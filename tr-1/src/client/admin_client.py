@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import socket
-from typing import Any, Dict
+from typing import Any
 
 
 class SportsAdminClient:
@@ -23,7 +23,7 @@ class SportsAdminClient:
         self.socket = socket.create_connection((self.host, self.port))
         print(f"Conectado à central esportiva em {self.host}:{self.port}.")
 
-    def send_request(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def send_request(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Envia uma requisição e aguarda sua resposta JSON delimitada por linha."""
         if self.socket is None:
             raise ConnectionError("Cliente não conectado. Chame connect() primeiro.")
@@ -32,7 +32,7 @@ class SportsAdminClient:
         self.socket.sendall(serialized.encode("utf-8"))
         return self._receive_response()
 
-    def create_match(self, match_id: int, home_team: str, away_team: str) -> Dict[str, Any]:
+    def create_match(self, match_id: int, home_team: str, away_team: str) -> dict[str, Any]:
         """Solicita o cadastro de uma nova partida."""
         return self.send_request(
             {
@@ -50,7 +50,7 @@ class SportsAdminClient:
         event_type: str,
         description: str,
         team: str = "",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Solicita o registro de gol, cartão ou encerramento de partida."""
         return self.send_request(
             {
@@ -109,7 +109,7 @@ class SportsAdminClient:
             self.socket.close()
             self.socket = None
 
-    def _receive_response(self) -> Dict[str, Any]:
+    def _receive_response(self) -> dict[str, Any]:
         while "\n" not in self._response_buffer:
             if self.socket is None:  # proteção para analisadores estáticos
                 raise ConnectionError("Conexão encerrada.")

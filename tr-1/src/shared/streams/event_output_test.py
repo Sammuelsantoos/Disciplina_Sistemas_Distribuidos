@@ -1,11 +1,23 @@
+"""Teste manual da escrita de eventos CSV (Event Output Test).
+
+Este script demonstra como usar o MatchEventOutputStream para gravar eventos
+tanto na saída padrão do terminal (sys.stdout) quanto em arquivos locais CSV.
+"""
+
 import sys
 from src.shared.models import MatchEvent
 from src.shared.streams import MatchEventOutputStream
 
 my_events = [
-    MatchEvent(event_id=1, match_id=101, event_type="GOL", description="Gol do Rubens"),
-    MatchEvent(event_id=2, match_id=101, event_type="CARD", description="Cartao Amarelo Samuel"),
-    MatchEvent(event_id=3, match_id=101, event_type="END", description="Fim do Primeiro Tempo")
+    MatchEvent(
+        event_id=1, match_id=101, event_type="GOL", description="Gol do Rubens"
+    ),
+    MatchEvent(
+        event_id=2, match_id=101, event_type="CARD", description="Cartao Amarelo Samuel"
+    ),
+    MatchEvent(
+        event_id=3, match_id=101, event_type="END", description="Fim do Primeiro Tempo"
+    )
 ]
 
 print("--- TESTE EM TERMINAL ---")

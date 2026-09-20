@@ -69,7 +69,6 @@ class MatchEventInputStream:
             events.append(event)
         return events
 
-    # Alias intuitivo para consumidores que tratam o wrapper como um stream.
     read_next = read_event
 
     def _read_chunk(self) -> str:
