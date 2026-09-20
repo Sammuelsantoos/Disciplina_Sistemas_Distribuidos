@@ -10,7 +10,9 @@ from src.shared.streams import MatchEventInputStream
 
 
 def main() -> None:
-    input_file = Path(__file__).with_name("input_test.csv")
+    root_project = Path(__file__).resolve().parents[3]
+    input_file = root_project / "src" / "data" / "input_test.csv"
+
     with input_file.open("r", encoding="utf-8") as source:
         events = MatchEventInputStream(source, buffer_size=11).read_all()
 
