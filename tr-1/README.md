@@ -92,19 +92,40 @@ O sistema foi blindado contra bugs e regressões usando uma pirâmide completa d
 ### 1. Testes de Unidade (`tests/unit/`)
 Validações de lógica isolada sem dependência de rede, englobando serialização CSV de modelos de dados e formatação estrita de payloads JSON.
 ```bash
+<<<<<<< HEAD
 python3 -m tests.unit.main_unit
+=======
+python -m src.server.main_server
+>>>>>>> 9df25b9 (refatoração para passar parâmentros de ip e porta  pelo comando)
 ```
 
 ### 2. Testes de Integração (`tests/integration/`)
 Valida o acoplamento entre os componentes e buffers de rede, cobrindo concorrência thread-safe de dados, fragmentação de fluxos TCP e decodificação assíncrona UDP Multicast.
 ```bash
+<<<<<<< HEAD
 python3 -m tests.integration.main_integration
+=======
+python -m src.client.admin_client.py
+>>>>>>> 9df25b9 (refatoração para passar parâmentros de ip e porta  pelo comando)
 ```
 
 ### 3. Testes de Ponta a Ponta / End-to-End (`tests/e2e/`)
 Abre sockets reais de sistema operacional utilizando portas efêmeras dinâmicas alocadas pelo SO para orquestrar fluxos de requisição e resposta completos simulando múltiplos clientes.
 ```bash
+<<<<<<< HEAD
 python3 -m tests.e2e.main_e2e
+=======
+python -m src.client.viewer_client
+```
+
+### 4. Validar os componentes da Pessoa B
+
+Na raiz de `tr-1`, execute a leitura manual da massa CSV e os testes automatizados:
+
+```bash
+python -m src.data.event_input_test
+python -m unittest discover -s tests -v
+>>>>>>> 9df25b9 (refatoração para passar parâmentros de ip e porta  pelo comando)
 ```
 
 ---

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import socket
 from typing import Any
@@ -10,7 +11,7 @@ from typing import Any
 class SportsAdminClient:
     """Cliente TCP que envia comandos JSON ao ``LiveSportsServer``."""
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 5000):
+    def __init__(self, host: str = "10.10.231.223", port: int = 5000):
         self.host = host
         self.port = int(port)
         self.socket: socket.socket | None = None
@@ -136,5 +137,21 @@ class SportsAdminClient:
                 print("Informe um número inteiro válido.")
 
 
+def build_parser() -> argparse.ArgumentParser:
+    """Cria o parser para receber host e porta via linha de comando."""
+    parser = argparse.ArgumentParser(description="Painel administrativo do sistema esportivo.")
+    parser.add_argument("--host", type=str, default="10.10.231.223", help="IP ou hostname do servidor TCP.")
+    parser.add_argument("--port", type=int, default=5000, help="Porta TCP do servidor central.")
+    return parser
+
+
+def main(argv=None) -> int:
+    """Executa o cliente administrativo usando argumentos de linha de comando."""
+    args = build_parser().parse_args(argv)
+    client = SportsAdminClient(host=args.host, port=args.port)
+    client.start()
+    return 0
+
+
 if __name__ == "__main__":
-    SportsAdminClient().start()
+    raise SystemExit(main())

@@ -4,6 +4,7 @@ Este módulo gerencia a conexão UDP Multicast para receber notificações
 de partidas em tempo real e fornece uma interface de terminal interativa.
 """
 
+import argparse
 import socket
 import threading
 import json
@@ -15,6 +16,7 @@ class SportsViewerClient:
     Cliente multithreading que escuta eventos de partida em tempo real via UDP
     Multicast mantendo uma interface interativa de terminal ativa para o usuário.
     """
+
     def __init__(self, multicast_group: str = "230.0.0.1", multicast_port: int = 6000):
         """
         Inicializa as propriedades do socket multicast e os escutadores em segundo plano.
@@ -28,10 +30,10 @@ class SportsViewerClient:
 
     def start(self) -> None:
         """
-        Vincula o socket do cliente UDP, entra no grupo de rede Classe D e 
+        Vincula o socket do cliente UDP, entra no grupo de rede Classe D e
         inicia a thread de escuta em segundo plano.
         """
-        self.udp_socket.bind((self.multicast_group, self.multicast_port))
+        self.udp_socket.bind(("", self.multicast_port))
 
         mreq = struct.pack("4sl", socket.inet_aton(self.multicast_group), socket.INADDR_ANY)
         self.udp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
@@ -81,7 +83,7 @@ class SportsViewerClient:
 
     def _run_user_interface(self) -> None:
         """
-        Thread principal de execução que mantém o menu interativo de comandos 
+        Thread principal de execução que mantém o menu interativo de comandos
         para verificações de status do sistema ou saída do grupo.
         """
         print("=== BEM-VINDO A CENTRAL DE ESPORTES EM TEMPO REAL ===")
@@ -94,11 +96,8 @@ class SportsViewerClient:
 
                 if choice == "1":
                     print(
-                        f"Ouvindo feeds ativos no IP de Classe D: {
-                            self.multicast_group
-                        }:{
-                            self.multicast_port
-                        }"
+                        "Ouvindo feeds ativos no IP de Classe D: "
+                        f"{self.multicast_group}:{self.multicast_port}"
                     )
                 elif choice == "2":
                     print("Saindo do grupo multicast de torcedores...")
@@ -124,6 +123,35 @@ class SportsViewerClient:
         print("Conexao com a central esportiva encerrada.")
 
 
-if __name__ == "__main__":
-    client = SportsViewerClient()
+def build_parser() -> argparse.ArgumentParser:
+    """Cria o parser para receber grupo multicast e porta via linha de comando."""
+    parser = argparse.ArgumentParser(description="Cliente torcedor para receber notificacoes multicast.")
+    parser.add_argument(
+        "--group",
+        "--multicast-group",
+        dest="group",
+        type=str,
+        default="230.0.0.1",
+        help="Endereço multicast do canal de notificações.",
+    )
+    parser.add_argument(
+        "--port",
+        "--multicast-port",
+        dest="port",
+        type=int,
+        default=6000,
+        help="Porta multicast do canal de notificações.",
+    )
+    return parser
+
+
+def main(argv=None) -> int:
+    """Executa o cliente torcedor usando argumentos de linha de comando."""
+    args = build_parser().parse_args(argv)
+    client = SportsViewerClient(multicast_group=args.group, multicast_port=args.port)
     client.start()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

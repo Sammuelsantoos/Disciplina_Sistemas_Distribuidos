@@ -4,6 +4,7 @@ Este módulo coordena o recebimento de comandos via conexões TCP (Admin)
 e realiza a difusão de eventos esportivos via UDP Multicast (Viewer).
 """
 
+import argparse
 import socket
 import threading
 import json
@@ -13,19 +14,31 @@ from src.server.services import NotificationService
 
 class LiveSportsServer:
     """
-    Servidor central que coordena partidas esportivas e transmite eventos em 
+    Servidor central que coordena partidas esportivas e transmite eventos em
     tempo real usando conexoes TCP multithreading e canais UDP Multicast.
     """
-    def __init__(self, tcp_host: str = "0.0.0.0", tcp_port: int = 5000):
+
+    def __init__(
+        self,
+        tcp_host: str = "0.0.0.0",
+        tcp_port: int = 5000,
+        multicast_group: str = "230.0.0.1",
+        multicast_port: int = 6000,
+    ):
         """
-        Inicializa os sockets de comunicacao do servidor, servicos da aplicacao 
+        Inicializa os sockets de comunicacao do servidor, servicos da aplicacao
         e travas de gerenciamento de conexao.
         """
         self.tcp_host = tcp_host
         self.tcp_port = tcp_port
+        self.multicast_group = multicast_group
+        self.multicast_port = multicast_port
 
         self.match_service = MatchService()
-        self.notify_service = NotificationService()
+        self.notify_service = NotificationService(
+            multicast_group=self.multicast_group,
+            multicast_port=self.multicast_port,
+        )
 
         self.lock = threading.Lock()
         self.active_connections = []
@@ -35,7 +48,7 @@ class LiveSportsServer:
 
     def start(self) -> None:
         """
-        Vincula o socket TCP ao host e porta designados, entra em um loop 
+        Vincula o socket TCP ao host e porta designados, entra em um loop
         infinito de escuta e gera threads de manipulacao de clientes.
         """
         self.tcp_socket.bind((self.tcp_host, self.tcp_port))
@@ -52,7 +65,7 @@ class LiveSportsServer:
                 client_thread = threading.Thread(
                     target=self.handle_admin_client,
                     args=(client_socket, client_address),
-                    daemon=True
+                    daemon=True,
                 )
                 client_thread.start()
         except KeyboardInterrupt:
@@ -93,7 +106,7 @@ class LiveSportsServer:
 
     def process_request(self, raw_request: str) -> dict:
         """
-        Converte mensagens de texto brutas recebidas em estruturas de dados JSON 
+        Converte mensagens de texto brutas recebidas em estruturas de dados JSON
         e as roteia para a acao manipuladora correspondente.
         """
         try:
@@ -111,7 +124,7 @@ class LiveSportsServer:
 
     def _handle_create_match(self, data: dict) -> dict:
         """
-        Instrui o servico interno de partidas a alocar um novo jogo de futebol 
+        Instrui o servico interno de partidas a alocar um novo jogo de futebol
         e transmite uma notificacao para o grupo multicast.
         """
         match_id = data.get("match_id")
@@ -127,7 +140,7 @@ class LiveSportsServer:
 
         self.notify_service.send_notification(
             notification_type="NOTIFICACAO",
-            message=f"Nova partida iniciada no campeonato: {home} x {away}"
+            message=f"Nova partida iniciada no campeonato: {home} x {away}",
         )
         return {"status": "SUCCESS", "message": "Partida cadastrada com sucesso"}
 
@@ -159,13 +172,13 @@ class LiveSportsServer:
 
         self.notify_service.send_notification(
             notification_type=alert_label,
-            message=display_message
+            message=display_message,
         )
         return {"status": "SUCCESS", "message": "Evento processado e enviado para a rede"}
 
     def _cleanup(self) -> None:
         """
-        Encerra conexoes ativas de forma segura, liberando os escutadores do 
+        Encerra conexoes ativas de forma segura, liberando os escutadores do
         socket TCP principal e os servicos de backend com seguranca.
         """
         print("Fechando conexoes pendentes...")
@@ -177,6 +190,48 @@ class LiveSportsServer:
         print("Servidor finalizado com sucesso.")
 
 
-if __name__ == "__main__":
-    server = LiveSportsServer()
+def build_parser() -> argparse.ArgumentParser:
+    """Cria o parser de linha de comando do servidor."""
+    parser = argparse.ArgumentParser(description="Servidor central do sistema esportivo.")
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="0.0.0.0",
+        help="IP/hostname TCP em que o servidor deve escutar.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=5000,
+        help="Porta TCP do servidor central.",
+    )
+    parser.add_argument(
+        "--multicast-group",
+        type=str,
+        default="230.0.0.1",
+        help="Endereço multicast para notificações em tempo real.",
+    )
+    parser.add_argument(
+        "--multicast-port",
+        type=int,
+        default=6000,
+        help="Porta multicast para notificações em tempo real.",
+    )
+    return parser
+
+
+def main(argv=None) -> int:
+    """Executa o servidor usando argumentos de linha de comando."""
+    args = build_parser().parse_args(argv)
+    server = LiveSportsServer(
+        tcp_host=args.host,
+        tcp_port=args.port,
+        multicast_group=args.multicast_group,
+        multicast_port=args.multicast_port,
+    )
     server.start()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
