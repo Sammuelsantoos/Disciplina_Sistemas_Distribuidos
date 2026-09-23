@@ -27,10 +27,10 @@ class MatchService:
         if os.path.exists(self._storage_path):
             try:
                 with open(self._storage_path, "r", encoding="utf-8") as file:
-                    stream_entrada = MatchEventInputStream(source_stream=file)
-                    eventos_salvos = stream_entrada.read_all()
-                    for evento in eventos_salvos:
-                        self._recarregar_evento_antigo(evento)
+                    input_stream = MatchEventInputStream(source_stream=file)
+                    saved_events = input_stream.read_all()
+                    for event in saved_events:
+                        self._reload_historical_event(event)
             except (OSError, ValueError, TypeError):
                 pass
 
@@ -61,7 +61,7 @@ class MatchService:
         description: str,
         team: str | None = None,
     ) -> MatchEvent:
-        """Registra um evento e atualiza o placar quando o evento é um gol."""
+        """Registra um evento e updates o placar quando o evento é um gol."""
         try:
             normalized_event_id = int(event_id)
             normalized_match_id = int(match_id)
@@ -97,10 +97,10 @@ class MatchService:
 
             os.makedirs(os.path.dirname(self._storage_path), exist_ok=True)
             with open(self._storage_path, "a", encoding="utf-8") as file:
-                stream_saida = MatchEventOutputStream(
+                output_stream = MatchEventOutputStream(
                     destination_stream=file, event_array=[event], count=1
                 )
-                stream_saida.write_all()
+                output_stream.write_all()
 
             return event
 
@@ -122,20 +122,20 @@ class MatchService:
         with self._lock:
             return list(self._events[int(match_id)])
 
-    def _recarregar_evento_antigo(self, evento: MatchEvent) -> None:
+    def _reload_historical_event(self, event: MatchEvent) -> None:
         with self._lock:
-            if evento.match_id not in self._matches:
-                self._matches[evento.match_id] = Match(
-                    evento.match_id, "Desconhecido", "Desconhecido"
+            if event.match_id not in self._matches:
+                self._matches[event.match_id] = Match(
+                    event.match_id, "Desconhecido", "Desconhecido"
                 )
 
-            match = self._matches[evento.match_id]
-            self._events[evento.match_id].append(evento)
-            self._event_ids.add(evento.event_id)
+            match = self._matches[event.match_id]
+            self._events[event.match_id].append(event)
+            self._event_ids.add(event.event_id)
 
-            if str(evento.event_type).upper() == "GOL":
+            if str(event.event_type).upper() == "GOL":
                 try:
-                    side = self._team_side(match, getattr(evento, "team", None))
+                    side = self._team_side(match, getattr(event, "team", None))
                     if side == "home":
                         match.home_score += 1
                     else:
