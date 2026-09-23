@@ -66,9 +66,29 @@ Este terminal permite que você interaja enviando comandos reais de criação de
 
 Ao executar ou testar os módulos do sistema, você pode customizar o comportamento da rede utilizando os **3 parâmetros principais** aceitos via linha de comando:
 
-* **`--host`**: Define o endereço IP do servidor central. É utilizado pelo servidor para indicar em qual interface escutar (ex: `0.0.0.0` para todas) e pelos clientes TCP (Admin) para localizar o servidor na rede física ou local.
-* **`--port`**: Define a porta lógica de comunicação de rede. No servidor e no Admin, gerencia o canal TCP de controle. No Viewer, configura a porta em que o fluxo UDP opera.
-* **`--group`** (ou **`--multicast-group`**): Configura o endereço IP Classe D reservado para transmissões lógicas de Multicast (ex: `230.0.0.1`). Utilizado pelo servidor para despachar os eventos simultaneamente e pelo Viewer para se inscrever no grupo correspondente.
+* **`--host`**: Define o endereço IP do servidor central. É utilizado pelo servidor para indicar em qual interface escutar e pelos clientes TCP (Admin) para localizar o servidor na rede local.
+  * *Exemplo de teste (Mudar host no Admin):*
+    ```bash
+    python3 -m src.client.admin_client --host 192.168.1.50
+    ```
+* **`--port`**: Define a porta lógica de comunicação de rede. Permite alterar as portas padrões tanto dos canais TCP quanto UDP caso a porta `5000` ou `6000` já estejam ocupadas.
+  * *Exemplo de teste (Iniciar o Servidor em outra porta TCP):*
+    ```bash
+    python3 -m src.server.main_server --port 7000
+    ```
+  * *Exemplo de teste (Conectar o Admin nessa nova porta):*
+    ```bash
+    python3 -m src.client.admin_client --host 127.0.0.1 --port 7000
+    ```
+* **`--group`** (ou **`--multicast-group`**): Configura o endereço IP Classe D reservado para as transmissões de Multicast. Utilizado para isolar ou criar salas de transmissões diferentes na rede.
+  * *Exemplo de teste (Iniciar o Servidor com outro grupo multicast):*
+    ```bash
+    python3 -m src.server.main_server --multicast-group 226.0.0.2
+    ```
+  * *Exemplo de teste (Fazer o Viewer escutar esse novo grupo):*
+    ```bash
+    python3 -m src.client.viewer_client --group 226.0.0.2
+    ```
 
 ---
 
@@ -94,6 +114,29 @@ Com os 3 terminais rodando de forma simultânea, faça as seguintes ações no *
 
 3. **Verificar o Histórico Persistido:**
    * No **Terminal do Servidor (Terminal 1)**, observe as mensagens de log confirmando que os dados foram registrados em memória e processados corretamente.
+
+---
+
+## Cenário de Teste Avançado (Portas e Grupos Customizados)
+
+Para validar o funcionamento completo isolando os canais e modificando todas as configurações padrões de rede simultaneamente (Porta TCP para `7000`, Porta UDP Multicast para `8000` e Grupo para `226.0.0.2`), utilize os seguintes comandos em seus respectivos terminais:
+
+### 1. Iniciar o Servidor Customizado (Terminal 1)
+```bash
+python3 -m src.server.main_server --port 7000 --multicast-group 226.0.0.2 --multicast-port 8000
+```
+
+### 2. Iniciar o Viewer Alinhado ao Novo Multicast (Terminal 2)
+O Viewer não escuta o canal TCP, portanto precisa apenas sintonizar no novo endereço de grupo e porta UDP configurados no servidor:
+```bash
+python3 -m src.client.viewer_client --group 226.0.0.2 --port 8000
+```
+
+### 3. Iniciar o Admin Alinhado ao Novo Canal TCP (Terminal 3)
+O Admin ignora o fluxo Multicast e conecta diretamente na nova porta TCP aberta pelo servidor:
+```bash
+python3 -m src.client.admin_client --host 127.0.0.1 --port 7000
+```
 
 ---
 
