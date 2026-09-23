@@ -1,3 +1,5 @@
+"""Módulo de testes de ponta a ponta (E2E) para o LiveSportsServer."""
+
 import json
 import socket
 import threading
@@ -7,8 +9,10 @@ from src.server.main_server import LiveSportsServer
 
 
 class LiveSportsServerE2ETests(unittest.TestCase):
+    """Valida o ciclo de vida completo e o roteamento TCP do servidor."""
 
     def setUp(self):
+        """Inicializa o servidor e aguarda a alocação da porta dinâmica."""
         self.host = "127.0.0.1"
         self.server = LiveSportsServer(tcp_host=self.host, tcp_port=0)
 
@@ -29,10 +33,12 @@ class LiveSportsServerE2ETests(unittest.TestCase):
         time.sleep(0.05)
 
     def tearDown(self):
+        """Encerra o socket do servidor e limpa os recursos do sistema."""
         self.server._cleanup()  # pylint: disable=protected-access
         time.sleep(0.1)
 
     def test_server_creates_match_via_tcp_request(self):
+        """Verifica se o servidor aceita e processa a criação de partidas."""
         client_socket = socket.create_connection((self.host, self.port))
 
         payload = {
@@ -52,6 +58,7 @@ class LiveSportsServerE2ETests(unittest.TestCase):
         self.assertEqual(response.get("status"), "SUCCESS")
 
     def test_server_rejects_invalid_operation(self):
+        """Garante que o roteador responda com erro para comandos inválidos."""
         client_socket = socket.create_connection((self.host, self.port))
 
         payload = {"action": "INVALID_ACTION"}
