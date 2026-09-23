@@ -17,7 +17,7 @@ class MatchService:
 
     VALID_EVENT_TYPES = {"GOL", "CARD", "END"}
 
-    def __init__(self, storage_path: str = "src/data/event_test.csv"):
+    def __init__(self, storage_path: str = "src/data/event.csv"):
         self._matches: Dict[int, Match] = {}
         self._events: Dict[int, List[MatchEvent]] = defaultdict(list)
         self._event_ids = set()

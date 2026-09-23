@@ -10,6 +10,18 @@ from src.client.viewer_client import SportsViewerClient
 class ViewerClientTests(unittest.TestCase):
     """Testa a inicialização e o processamento de pacotes UDP do viewer."""
 
+    def setUp(self):
+        """Inicializa instâncias padrão antes de cada teste."""
+        self.client = None
+
+    def tearDown(self):
+        """Garante o encerramento do socket aberto para evitar ResourceWarning."""
+        if self.client and hasattr(self.client, "udp_socket"):
+            try:
+                self.client.udp_socket.close()
+            except OSError:
+                pass
+
     @patch("socket.socket")
     def test_initialization_sets_socket_options(self, mock_socket_class):
         """Verifica as propriedades de reutilização de endereço do socket."""
@@ -24,13 +36,12 @@ class ViewerClientTests(unittest.TestCase):
 
     def test_display_notification_handles_valid_json(self):
         """Valida se o interpretador de payloads processa mensagens sem quebrar."""
-        client = SportsViewerClient()
+        self.client = SportsViewerClient()
         payload = {"tipo": "GOL", "mensagem": "Gol do mandante!"}
         raw_line = json.dumps(payload)
 
         try:
-            # type: ignore
-            client._display_notification(raw_line)  # pylint: disable=protected-access
+            self.client._display_notification(raw_line)  # pylint: disable=protected-access
             success = True
         except (json.JSONDecodeError, ValueError):
             success = False
@@ -39,12 +50,11 @@ class ViewerClientTests(unittest.TestCase):
 
     def test_display_notification_ignores_invalid_json(self):
         """Garante que payloads JSON corrompidos ou inválidos sejam ignorados."""
-        client = SportsViewerClient()
+        self.client = SportsViewerClient()
         invalid_raw_line = '{"tipo": "GOL", "mensagem":'
 
         try:
-            # type: ignore
-            client._display_notification(invalid_raw_line)  # pylint: disable=protected-access
+            self.client._display_notification(invalid_raw_line)  # pylint: disable=protected-access
             success = True
         except (json.JSONDecodeError, ValueError):
             success = False
