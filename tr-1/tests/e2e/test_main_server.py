@@ -1,5 +1,3 @@
-"""Testes de ponta a ponta (E2E) para o LiveSportsServer."""
-
 import json
 import socket
 import threading
@@ -9,26 +7,32 @@ from src.server.main_server import LiveSportsServer
 
 
 class LiveSportsServerE2ETests(unittest.TestCase):
-    """Valida o ciclo de vida completo, roteamento TCP e concorrência do servidor."""
 
     def setUp(self):
-        """Inicializa o servidor real em uma porta alternativa para testes."""
         self.host = "127.0.0.1"
-        self.port = 5001
-        self.server = LiveSportsServer(tcp_host=self.host, tcp_port=self.port)
+        self.server = LiveSportsServer(tcp_host=self.host, tcp_port=0)
 
         self.server_thread = threading.Thread(target=self.server.start, daemon=True)
         self.server_thread.start()
-        time.sleep(0.1)
+
+        for _ in range(20):
+            try:
+                self.port = self.server.tcp_socket.getsockname()[1]
+                if self.port != 0:
+                    break
+            except OSError:
+                pass
+            time.sleep(0.01)
+        else:
+            self.port = self.server.tcp_socket.getsockname()[1]
+
+        time.sleep(0.05)
 
     def tearDown(self):
-        """Garante o encerramento limpo do socket do servidor após cada teste."""
-        # type: ignore
         self.server._cleanup()  # pylint: disable=protected-access
-        self.server_thread.join(timeout=1.0)
+        time.sleep(0.1)
 
     def test_server_creates_match_via_tcp_request(self):
-        """Verifica se o servidor aceita conexões e processa requisições JSON."""
         client_socket = socket.create_connection((self.host, self.port))
 
         payload = {
@@ -45,11 +49,9 @@ class LiveSportsServerE2ETests(unittest.TestCase):
         response = json.loads(response_bytes.decode("utf-8").strip())
 
         client_socket.close()
-
         self.assertEqual(response.get("status"), "SUCCESS")
 
     def test_server_rejects_invalid_operation(self):
-        """Garante que o roteador trate e responda erros para comandos desconhecidos."""
         client_socket = socket.create_connection((self.host, self.port))
 
         payload = {"action": "INVALID_ACTION"}
@@ -60,7 +62,6 @@ class LiveSportsServerE2ETests(unittest.TestCase):
         response = json.loads(response_bytes.decode("utf-8").strip())
 
         client_socket.close()
-
         self.assertEqual(response.get("status"), "ERROR")
 
 
