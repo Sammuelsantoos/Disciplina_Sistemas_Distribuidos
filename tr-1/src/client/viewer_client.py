@@ -125,7 +125,9 @@ class SportsViewerClient:
 
 def build_parser() -> argparse.ArgumentParser:
     """Cria o parser para receber grupo multicast e porta via linha de comando."""
-    parser = argparse.ArgumentParser(description="Cliente torcedor para receber notificacoes multicast.")
+    parser = argparse.ArgumentParser(
+        description="Cliente torcedor para receber notificacoes multicast."
+    )
     parser.add_argument(
         "--group",
         "--multicast-group",

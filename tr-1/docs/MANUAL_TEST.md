@@ -62,6 +62,16 @@ Este terminal permite que você interaja enviando comandos reais de criação de
 
 ---
 
+## Parâmetros Principais de Configuração
+
+Ao executar ou testar os módulos do sistema, você pode customizar o comportamento da rede utilizando os **3 parâmetros principais** aceitos via linha de comando:
+
+* **`--host`**: Define o endereço IP do servidor central. É utilizado pelo servidor para indicar em qual interface escutar (ex: `0.0.0.0` para todas) e pelos clientes TCP (Admin) para localizar o servidor na rede física ou local.
+* **`--port`**: Define a porta lógica de comunicação de rede. No servidor e no Admin, gerencia o canal TCP de controle. No Viewer, configura a porta em que o fluxo UDP opera.
+* **`--group`** (ou **`--multicast-group`**): Configura o endereço IP Classe D reservado para transmissões lógicas de Multicast (ex: `230.0.0.1`). Utilizado pelo servidor para despachar os eventos simultaneamente e pelo Viewer para se inscrever no grupo correspondente.
+
+---
+
 ## Cenário de Teste Prático
 
 Com os 3 terminais rodando de forma simultânea, faça as seguintes ações no **Terminal do Administrador (Terminal 3)** para validar o sistema:
