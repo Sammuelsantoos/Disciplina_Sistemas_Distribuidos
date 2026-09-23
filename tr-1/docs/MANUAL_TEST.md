@@ -14,7 +14,7 @@ Para evitar erros de caminhos de módulos, todas as execuções utilizam a flag 
 
 ## Fluxo de Execução (Passo a Passo)
 
-Para ver o Multicast funcionando em tempo real, o ideal é abrir pelo menos **3 abas ou janelas de terminal** diferentes.
+Para ver o Multicast funcionando em tempo real, abra pelo menos **3 abas ou janelas de terminal** diferentes.
 
 ### Passo 1: Iniciar o Servidor Central (Terminal 1)
 O servidor abrirá uma porta TCP (`5000`) para comandos e preparará o canal de transmissão UDP Multicast (`230.0.0.1:6000`).
@@ -47,15 +47,17 @@ Este cliente entra imediatamente no canal de transmissão de dados via rede para
 ---
 
 ### Passo 3: Iniciar o Painel de Controle / Admin (Terminal 3)
-Este terminal permite que você interaja enviando comandos reais de criação de partidas e eventos para o servidor via TCP.
+Este terminal permite que você interaja enviando comandos reais de criação de partidas e eventos para o servidor via TCP. 
+
+> **Importante:** Como o IP padrão do código está configurado para uma rede externa, você **deve passar o argumento `--host 127.0.0.1`** para forçar a conexão com o servidor local.
 
 * **No Linux / macOS:**
   ```bash
-  python3 -m src.client.admin_client
+  python3 -m src.client.admin_client --host 127.0.0.1
   ```
 * **No Windows:**
   ```cmd
-  python -m src.client.admin_client
+  python -m src.client.admin_client --host 127.0.0.1
   ```
 
 ---
@@ -88,4 +90,5 @@ Com os 3 terminais rodando de forma simultânea, faça as seguintes ações no *
 ## Resolução de Problemas Comuns
 
 * **Address already in use (Erro 98 / Erro 10048):** Se o servidor fechar inesperadamente e você tentar abri-lo logo em seguida, o sistema operacional pode demorar alguns segundos para liberar a porta `5000`. Aguarde um momento e tente novamente.
+* **Connection Refused (Conexão Recusada no Admin):** Certifique-se de que o servidor (Terminal 1) está rodando ativamente e que você incluiu explicitamente o argumento `--host 127.0.0.1` na inicialização do Admin.
 * **Torcedor não recebe mensagens:** Certifique-se de que os clientes torcedores foram iniciados *antes* de você disparar os eventos no painel administrativo, já que o protocolo UDP não garante a entrega de pacotes enviados no passado.
