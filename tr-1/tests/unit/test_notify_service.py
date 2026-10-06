@@ -5,10 +5,15 @@ import socket
 import unittest
 from unittest.mock import MagicMock, patch
 from src.server.services.notify_service import NotificationService
+from src.shared.base_multicast_endpoint import BaseMulticastEndpoint
 
 
 class NotificationServiceTests(unittest.TestCase):
     """Garante o comportamento isolado do montador de payloads UDP Multicast."""
+
+    def test_notification_service_inherits_from_multicast_endpoint(self):
+        """Verifica que a entidade de rede compartilha uma classe-base de multicast."""
+        self.assertTrue(issubclass(NotificationService, BaseMulticastEndpoint))
 
     @patch("socket.socket")
     def test_initialization_sets_multicast_ttl(self, mock_socket_class):
