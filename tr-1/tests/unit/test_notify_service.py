@@ -4,8 +4,12 @@ import json
 import socket
 import unittest
 from unittest.mock import MagicMock, patch
+
+from src.client.admin_client import SportsAdminClient
 from src.server.services.notify_service import NotificationService
 from src.shared.base_multicast_endpoint import BaseMulticastEndpoint
+from src.shared.base_network_client import BaseNetworkClient
+from src.shared.models.match_event import CardEvent, GoalEvent, MatchEvent
 
 
 class NotificationServiceTests(unittest.TestCase):
@@ -14,6 +18,16 @@ class NotificationServiceTests(unittest.TestCase):
     def test_notification_service_inherits_from_multicast_endpoint(self):
         """Verifica que a entidade de rede compartilha uma classe-base de multicast."""
         self.assertTrue(issubclass(NotificationService, BaseMulticastEndpoint))
+
+    def test_admin_client_inherits_from_network_base(self):
+        """Verifica que clientes TCP compartilham uma base comum de rede."""
+        self.assertTrue(issubclass(SportsAdminClient, BaseNetworkClient))
+
+    def test_event_specializations_inherit_from_match_event(self):
+        """Verifica que eventos específicos herdam da classe base de evento."""
+        self.assertTrue(issubclass(GoalEvent, MatchEvent))
+        self.assertTrue(issubclass(CardEvent, MatchEvent))
+        self.assertEqual(GoalEvent(1, 1, "Ceará").build_message(), "[GOL] Ceará")
 
     @patch("socket.socket")
     def test_initialization_sets_multicast_ttl(self, mock_socket_class):

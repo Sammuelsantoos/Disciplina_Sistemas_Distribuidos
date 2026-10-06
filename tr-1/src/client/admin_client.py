@@ -7,14 +7,14 @@ import json
 import socket
 from typing import Any
 
+from src.shared.base_network_client import BaseNetworkClient
 
-class SportsAdminClient:
+
+class SportsAdminClient(BaseNetworkClient):
     """Cliente TCP que envia comandos JSON ao ``LiveSportsServer``."""
 
     def __init__(self, host: str = "10.10.231.223", port: int = 5000):
-        self.host = host
-        self.port = int(port)
-        self.socket: socket.socket | None = None
+        super().__init__(host=host, port=port)
         self._response_buffer = ""
 
     def connect(self) -> None:
@@ -102,13 +102,7 @@ class SportsAdminClient:
 
     def close(self) -> None:
         """Encerra a conexão TCP ativa, caso exista."""
-        if self.socket is not None:
-            try:
-                self.socket.shutdown(socket.SHUT_RDWR)
-            except OSError:
-                pass
-            self.socket.close()
-            self.socket = None
+        super().close()
 
     def _receive_response(self) -> dict[str, Any]:
         while "\n" not in self._response_buffer:
