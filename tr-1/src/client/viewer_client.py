@@ -5,13 +5,15 @@ de partidas em tempo real e fornece uma interface de terminal interativa.
 """
 
 import argparse
-import socket
-import threading
 import json
+import socket
 import struct
+import threading
+
+from src.shared.base_multicast_endpoint import BaseMulticastEndpoint
 
 
-class SportsViewerClient:
+class SportsViewerClient(BaseMulticastEndpoint):
     """
     Cliente multithreading que escuta eventos de partida em tempo real via UDP
     Multicast mantendo uma interface interativa de terminal ativa para o usuário.
@@ -21,12 +23,8 @@ class SportsViewerClient:
         """
         Inicializa as propriedades do socket multicast e os escutadores em segundo plano.
         """
-        self.multicast_group = multicast_group
-        self.multicast_port = multicast_port
+        super().__init__(multicast_group=multicast_group, multicast_port=multicast_port)
         self.is_running = True
-
-        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     def start(self) -> None:
         """
@@ -119,7 +117,7 @@ class SportsViewerClient:
             self.udp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
         except socket.error:
             pass
-        self.udp_socket.close()
+        self.close()
         print("Conexao com a central esportiva encerrada.")
 
 

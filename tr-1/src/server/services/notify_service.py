@@ -1,22 +1,20 @@
 """Serviço de envio de notificações via UDP Multicast para os clientes."""
 
-import socket
 import json
+import socket
 import time
 
-class NotificationService:
+from src.shared.base_multicast_endpoint import BaseMulticastEndpoint
+
+
+class NotificationService(BaseMulticastEndpoint):
     """Gerencia a transmissão de alertas e eventos de partidas em tempo real."""
 
     def __init__(self, multicast_group: str = "230.0.0.1", multicast_port: int = 6000):
         """
         Inicializa o canal de transmissao UDP Multicast utilizando IP Classe D.
         """
-        self.multicast_group = multicast_group
-        self.multicast_port = multicast_port
-
-        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-
-        self.udp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+        super().__init__(multicast_group=multicast_group, multicast_port=multicast_port, ttl=2)
 
     def send_notification(self, notification_type: str, message: str) -> None:
         """
@@ -37,4 +35,4 @@ class NotificationService:
 
     def close(self) -> None:
         """Fecha o recurso de transmissao UDP."""
-        self.udp_socket.close()
+        super().close()
