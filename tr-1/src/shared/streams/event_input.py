@@ -10,13 +10,14 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from src.shared.models import MatchEvent
+from src.shared.models import MatchEvent, GoalEvent, CardEvent
 
 
 class MatchEventInputStream:
     """Reconstrói :class:`MatchEvent` a partir de arquivo, terminal ou socket."""
 
     def __init__(self, source_stream, buffer_size: int = 1024):
+        """Inicializa o stream com a origem de dados e tamanho de buffer configurados."""
         if not hasattr(source_stream, "read") and not hasattr(source_stream, "recv"):
             raise TypeError("A origem deve disponibilizar read() ou recv().")
         if buffer_size <= 0:
@@ -39,7 +40,7 @@ class MatchEventInputStream:
             if newline_at >= 0:
                 line = self._buffer[:newline_at]
                 self._buffer = self._buffer[newline_at + 1 :]
-                event = MatchEvent.from_csv_line(line)
+                event = self._parse_line_to_rich_event(line)
                 if event is not None:
                     return event
                 continue
@@ -48,7 +49,7 @@ class MatchEventInputStream:
                 if not self._buffer:
                     return None
                 line, self._buffer = self._buffer, ""
-                return MatchEvent.from_csv_line(line)
+                return self._parse_line_to_rich_event(line)
 
             chunk = self._read_chunk()
             if not chunk:
@@ -72,6 +73,7 @@ class MatchEventInputStream:
     read_next = read_event
 
     def _read_chunk(self) -> str:
+        """Lê um pedaço de dados da origem e decodifica para string."""
         if hasattr(self.source, "recv"):
             chunk = self.source.recv(self.buffer_size)
         else:
@@ -84,3 +86,47 @@ class MatchEventInputStream:
         if chunk is None:
             return ""
         raise TypeError("A origem retornou dados que não são texto nem bytes.")
+
+    def _parse_line_to_rich_event(self, line: str) -> Optional[MatchEvent]:
+        """Desserializa a linha CSV aplicando a lógica de fábrica para as subclasses."""
+        clean_line = line.strip()
+        if not clean_line:
+            return None
+
+        try:
+            parts = clean_line.split(',', 4)
+            if len(parts) < 5:
+                return None
+
+            event_id = int(parts[0])
+            match_id = int(parts[1])
+            event_type = parts[2].upper()
+            description = parts[3]
+            timestamp = int(parts[4])
+
+            if event_type == "GOL":
+                return GoalEvent(
+                    event_id=event_id,
+                    match_id=match_id,
+                    team="Desconhecido",
+                    description=description,
+                    timestamp=timestamp
+                )
+            if event_type == "CARD":
+                return CardEvent(
+                    event_id=event_id,
+                    match_id=match_id,
+                    player="Desconhecido",
+                    description=description,
+                    timestamp=timestamp
+                )
+
+            return MatchEvent(
+                event_id=event_id,
+                match_id=match_id,
+                event_type=event_type,
+                description=description,
+                timestamp=timestamp
+            )
+        except (ValueError, IndexError):
+            return None
