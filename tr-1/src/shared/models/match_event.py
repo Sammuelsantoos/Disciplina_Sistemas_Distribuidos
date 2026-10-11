@@ -10,6 +10,9 @@ import time
 class BaseMatchEvent:
     """Define a base comum para eventos esportivos do sistema."""
 
+    event_type: str
+    description: str
+
     def build_message(self) -> str:
         """Retorna a mensagem textual padronizada do evento."""
         return f"[{self.event_type}] {self.description}"
@@ -81,20 +84,41 @@ class MatchEvent(BaseMatchEvent):
 class GoalEvent(MatchEvent):
     """Evento específico para gol marcado em uma partida."""
 
-    def __init__(self, event_id: int, match_id: int, team: str, description: str | None = None, timestamp: int = None):
+    def __init__(
+            self,
+            event_id: int,
+            match_id: int,
+            team: str,
+            description: str | None = None,
+            timestamp: int = None
+    ):
         super().__init__(event_id, match_id, "GOL", description or f"Gol do {team}", timestamp)
         self.team = str(team)
 
     def build_message(self) -> str:
+        """Retorna a mensagem textual específica para o evento de gol."""
         return f"[GOL] {self.team}"
 
 
 class CardEvent(MatchEvent):
     """Evento específico para cartões recebidos por jogadores ou times."""
 
-    def __init__(self, event_id: int, match_id: int, player: str, description: str | None = None, timestamp: int = None):
-        super().__init__(event_id, match_id, "CARD", description or f"Cartão para {player}", timestamp)
+    def __init__(
+            self,
+            event_id: int,
+            match_id: int,
+            player: str,
+            description: str | None = None,
+            timestamp: int = None
+    ):
+        super().__init__(
+            event_id,
+            match_id,
+            "CARD",
+            description or f"Cartão para {player}", timestamp
+        )
         self.player = str(player)
 
     def build_message(self) -> str:
+        """Retorna a mensagem textual específica para o evento de cartão."""
         return f"[CARD] {self.player}"
