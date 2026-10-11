@@ -82,7 +82,7 @@ tr-1/
 
 Para inicializar a topologia de rede local (Servidor Central, Painel Administrativo TCP e múltiplos Terminais de Torcedores UDP Multicast), siga o guia passo a passo detalhado no arquivo complementar de instruções:
 
-**[Clique aqui para abrir o README.md](./README.md)**
+**[Clique aqui para abrir o teste de forma manual](./docs/MANUAL_TEST.md)**
 
 ---
 
