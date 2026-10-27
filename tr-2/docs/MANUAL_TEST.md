@@ -89,18 +89,18 @@ Com os 3 terminais rodando de forma simultânea, faça as seguintes ações sequ
 1. **Cadastrar Partida (Admin):**
    * No **Terminal 3**, escolha a opção `1`.
    * ID da partida: `1`
-   * Time mandante: `C`
-   * Time visitante: `F`
-   * *Verificação:* O Admin receberá na hora a mensagem `SUCCESS: Partida cadastrada com sucesso`. No **Terminal 1 (Servidor)**, aparecerá o log confirmando o registro em memória: `Partida registrada em memória: C x F`.
+   * Time mandante: `Ceara`
+   * Time visitante: `Fortaleza`
+   * *Verificação:* O Admin receberá na hora a mensagem `SUCCESS: Partida cadastrada com sucesso`. No **Terminal 1 (Servidor)**, aparecerá o log confirmando o registro em memória: `Partida registrada em memória: Ceara x Fortaleza`.
 
 2. **Listar Partidas Registradas (Torcedor):**
    * No **Terminal 2**, escolha a opção `1` (Listar todas as partidas).
-   * *Verificação:* O torcedor fará uma requisição síncrona via RPC e listará o jogo criado: `Partida: C 0 x 0 F`.
+   * *Verificação:* O torcedor fará uma requisição síncrona via RPC e listará o jogo criado: `Partida: Ceara 0 x 0 Fortaleza`.
 
 3. **Registrar um Gol (Admin):**
    * No **Terminal 3**, escolha a opção `2`.
    * Tipo: `GOL`.
-   * Time envolvido: `C`.
+   * Time envolvido: `Ceara`.
    * ID do evento: `1`.
    * ID da partida: `1`.
    * Descrição: `Gooooooooooooooooooooool de cabeça de Roberto Silva`.
@@ -112,7 +112,7 @@ Com os 3 terminais rodando de forma simultânea, faça as seguintes ações sequ
    * *Verificação:* O torcedor puxará do servidor e exibirá na tela o histórico completo do lance com sua descrição:
      ```text
      --- Histórico de Lances do Jogo ---
-     [GOL] C - Gooooooooooooooooooooool de cabeça de Roberto Silva
+     [GOL] Ceara - Gooooooooooooooooooooool de cabeça de Roberto Silva
      ```
 
 ---
