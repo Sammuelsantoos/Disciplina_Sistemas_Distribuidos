@@ -1,146 +1,141 @@
 """Módulo do cliente de visualização de eventos esportivos (Viewer Client).
 
-Este módulo gerencia a conexão UDP Multicast para receber notificações
-de partidas em tempo real e fornece uma interface de terminal interativa.
+Este módulo gerencia o consumo de placares e dados esportivos em tempo real
+utilizando chamadas remotas estruturadas sobre o protocolo Requisição-Resposta.
 """
 
 import argparse
 import json
-import socket
-import struct
-import threading
+from typing import Any
 
-from src.shared.base_multicast_endpoint import BaseMulticastEndpoint
+from src.shared.infra.protocol import RequestReplyProtocol, RemoteObjectRef
 
 
-class SportsViewerClient(BaseMulticastEndpoint):
-    """
-    Cliente multithreading que escuta eventos de partida em tempo real via UDP
-    Multicast mantendo uma interface interativa de terminal ativa para o usuário.
-    """
+class SportsViewerClient:
+    """Cliente que consome dados da central utilizando exclusivamente chamadas RPC."""
 
-    def __init__(self, multicast_group: str = "230.0.0.1", multicast_port: int = 6000):
-        """
-        Inicializa as propriedades do socket multicast e os escutadores em segundo plano.
-        """
-        super().__init__(multicast_group=multicast_group, multicast_port=multicast_port)
+    def __init__(self, host: str = "10.10.231.223", port: int = 5000) -> None:
+        """Inicializa os parâmetros do servidor e instancia o protocolo de requisição."""
+        self.host = host
+        self.port = port
+        self.protocol = RequestReplyProtocol()
+        self.remote_obj = RemoteObjectRef("CentralSportsService")
         self.is_running = True
 
     def start(self) -> None:
-        """
-        Vincula o socket do cliente UDP, entra no grupo de rede Classe D e
-        inicia a thread de escuta em segundo plano.
-        """
-        self.udp_socket.bind(("", self.multicast_port))
-
-        mreq = struct.pack("4sl", socket.inet_aton(self.multicast_group), socket.INADDR_ANY)
-        self.udp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-
-        listener_thread = threading.Thread(target=self._listen_multicast_stream, daemon=True)
-        listener_thread.start()
-
+        """Inicia a interface de comandos e o fluxo de execução síncrono do torcedor."""
         self._run_user_interface()
 
-    def _listen_multicast_stream(self) -> None:
-        """
-        Thread de execução em segundo plano que bloqueia com a chegada de dados,
-        capturando bytes brutos da rede e decodificando alertas esportivos
-        instantaneamente.
-        """
-        buffer = ""
-        while self.is_running:
-            try:
-                data, _ = self.udp_socket.recvfrom(2048)
-                if not data:
-                    continue
+    def send_request(self, method_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Realiza o marshalling do dicionário em JSON e invoca do_operation."""
+        serialized_args = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        response_bytes = self.protocol.do_operation(
+            o=self.remote_obj,
+            method_id=method_id,
+            arguments=serialized_args,
+            server_host=self.host,
+            server_port=self.port,
+        )
+        return json.loads(response_bytes.decode("utf-8"))
 
-                buffer += data.decode("utf-8")
-                while "\n" in buffer:
-                    line, buffer = buffer.split("\n", 1)
-                    if not line.strip():
-                        continue
-
-                    self._display_notification(line)
-            except (socket.error, OSError, ValueError):
-                break
-
-    def _display_notification(self, raw_json_line: str) -> None:
-        """
-        Desempacota os payloads de dados externos recebidos e exibe alertas
-        esportivos na tela do console.
-        """
+    def fetch_score(self, match_id: int) -> None:
+        """Busca o placar atual de uma partida enviando uma requisição remota."""
         try:
-            payload = json.loads(raw_json_line)
-            msg_type = payload.get("tipo", "NOTIFICACAO")
-            message = payload.get("mensagem", "")
+            response = self.send_request(
+                method_id="get_score",
+                payload={"match_id": match_id},
+            )
+            print(f"\n[PLACAR REMOTO]: {response.get('message', 'Sem dados')}")
+        except (RuntimeError, OSError) as error:
+            print(f"Não foi possível obter os dados da partida: {error}")
 
-            print(f"\n\r[TRANSMISSAO AO VIVO - {msg_type}] {message}")
-            print("\rEscolha uma opcao: ", end="", flush=True)
-        except json.JSONDecodeError:
-            pass
+    def list_matches(self) -> None:
+        """Lista o placar consolidado de todos os confrontos salvos na central."""
+        try:
+            response = self.send_request(
+                method_id="list_matches",
+                payload={},
+            )
+            matches = response.get("matches", {})
+            if not matches:
+                print("\nNenhuma partida ativa registrada no momento.")
+                return
+            print("\n--- Partidas em Andamento ---")
+            for m_id, scoreboard in matches.items():
+                print(f"Partida [{m_id}]: {scoreboard}")
+        except (RuntimeError, OSError) as error:
+            print(f"Não foi possível listar as partidas: {error}")
+
+    def fetch_events(self, match_id: int) -> None:
+        """Busca o histórico de eventos de uma partida enviando uma requisição remota."""
+        try:
+            response = self.send_request(
+                method_id="get_events",
+                payload={"match_id": match_id},
+            )
+            events = response.get("events", [])
+            if not events:
+                print("\nNenhum lance registrado para esta partida ainda.")
+                return
+            print("\n--- Histórico de Lances do Jogo ---")
+            for evt_msg in events:
+                print(evt_msg)
+        except (RuntimeError, OSError) as error:
+            print(f"Não foi possível obter os lances da partida: {error}")
 
     def _run_user_interface(self) -> None:
-        """
-        Thread principal de execução que mantém o menu interativo de comandos
-        para verificações de status do sistema ou saída do grupo.
-        """
-        print("=== BEM-VINDO A CENTRAL DE ESPORTES EM TEMPO REAL ===")
-        print("Conectado com sucesso ao canal de transmissao Multicast.")
+        """Mantém o menu interativo de comandos ativo para consultas do torcedor."""
+        print("=== BEM-VINDO À CENTRAL DE ESPORTES EM TEMPO REAL ===")
+        print("Conectado com sucesso ao canal de consulta RPC.")
 
         try:
             while self.is_running:
-                print("\n1. Verificar Canal\n2. Sair do Grupo")
-                choice = input("Escolha uma opcao: ").strip()
+                print(
+                    "\n1. Listar todas as partidas\n2. Consultar placar específico" \
+                    "\n3. Ver lances de uma partida\n4. Sair"
+                )
+                choice = input("Escolha uma opção: ").strip()
 
                 if choice == "1":
-                    print(
-                        "Ouvindo feeds ativos no IP de Classe D: "
-                        f"{self.multicast_group}:{self.multicast_port}"
-                    )
+                    self.list_matches()
                 elif choice == "2":
-                    print("Saindo do grupo multicast de torcedores...")
+                    try:
+                        m_id = int(input("Informe o ID da partida: ").strip())
+                        self.fetch_score(m_id)
+                    except ValueError:
+                        print("ID inválido.")
+                elif choice == "3":
+                    try:
+                        m_id = int(input("Informe o ID da partida: ").strip())
+                        self.fetch_events(m_id)
+                    except ValueError:
+                        print("ID inválido.")
+                elif choice == "4":
+                    print("Saindo do painel de monitoramento de torcedores...")
                     self.is_running = False
                 else:
-                    print("Opcao invalida.")
+                    print("Opção inválida.")
         except (KeyboardInterrupt, EOFError):
             self.is_running = False
-        finally:
-            self._close_connection()
-
-    def _close_connection(self) -> None:
-        """
-        Remove as propriedades de membro do grupo de rede Classe D e libera os
-        recursos do socket UDP de forma limpa.
-        """
-        try:
-            mreq = struct.pack("4sl", socket.inet_aton(self.multicast_group), socket.INADDR_ANY)
-            self.udp_socket.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
-        except socket.error:
-            pass
-        self.close()
-        print("Conexao com a central esportiva encerrada.")
+        print("Conexão com a central esportiva encerrada.")
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Cria o parser para receber grupo multicast e porta via linha de comando."""
+    """Cria o parser para receber o endereço do servidor e a porta via linha de comando."""
     parser = argparse.ArgumentParser(
-        description="Cliente torcedor para receber notificacoes multicast."
+        description="Cliente torcedor para obter consultas de placares via RPC."
     )
     parser.add_argument(
-        "--group",
-        "--multicast-group",
-        dest="group",
+        "--host",
         type=str,
-        default="230.0.0.1",
-        help="Endereço multicast do canal de notificações.",
+        default="10.10.231.223",
+        help="IP ou hostname da central esportiva.",
     )
     parser.add_argument(
         "--port",
-        "--multicast-port",
-        dest="port",
         type=int,
-        default=6000,
-        help="Porta multicast do canal de notificações.",
+        default=5000,
+        help="Porta de escuta do servidor central.",
     )
     return parser
 
@@ -148,7 +143,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv=None) -> int:
     """Executa o cliente torcedor usando argumentos de linha de comando."""
     args = build_parser().parse_args(argv)
-    client = SportsViewerClient(multicast_group=args.group, multicast_port=args.port)
+    client = SportsViewerClient(host=args.host, port=args.port)
     client.start()
     return 0
 

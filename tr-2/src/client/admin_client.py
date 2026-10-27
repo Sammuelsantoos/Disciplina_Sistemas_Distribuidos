@@ -1,47 +1,49 @@
-"""Painel de administração para a central esportiva via TCP."""
+"""Painel de administração para a central esportiva via protocolo Requisição-Resposta."""
 
 from __future__ import annotations
 
 import argparse
 import json
-import socket
 from typing import Any
 
-from src.shared.base_network_client import BaseNetworkClient
+from src.shared.infra import RequestReplyProtocol, RemoteObjectRef
 
 
-class SportsAdminClient(BaseNetworkClient):
-    """Cliente TCP que envia comandos JSON ao ``LiveSportsServer``."""
+class SportsAdminClient:
+    """Cliente administrativo que consome os métodos remotos via RequestReplyProtocol."""
 
-    def __init__(self, host: str = "10.10.231.223", port: int = 5000):
-        super().__init__(host=host, port=port)
-        self._response_buffer = ""
+    def __init__(self, host: str = "10.10.231.223", port: int = 5000) -> None:
+        """Inicializa os parâmetros do servidor e instancia o protocolo de requisição."""
+        self.host = host
+        self.port = port
+        self.protocol = RequestReplyProtocol()
+        self.remote_obj = RemoteObjectRef("CentralSportsService")
 
     def connect(self) -> None:
-        """Abre uma conexão TCP com o servidor central."""
-        if self.socket is not None:
-            return
-        self.socket = socket.create_connection((self.host, self.port))
-        print(f"Conectado à central esportiva em {self.host}:{self.port}.")
+        """Garante a compatibilidade de inicialização exibindo os dados de conexão."""
+        print(f"Pronto para comunicação com a central em {self.host}:{self.port} via RPC.")
 
-    def send_request(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Envia uma requisição e aguarda sua resposta JSON delimitada por linha."""
-        if self.socket is None:
-            raise ConnectionError("Cliente não conectado. Chame connect() primeiro.")
-
-        serialized = json.dumps(payload, ensure_ascii=False) + "\n"
-        self.socket.sendall(serialized.encode("utf-8"))
-        return self._receive_response()
+    def send_request(self, method_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """Realiza o marshalling do dicionário em JSON e invoca do_operation."""
+        serialized_args = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        response_bytes = self.protocol.do_operation(
+            o=self.remote_obj,
+            method_id=method_id,
+            arguments=serialized_args,
+            server_host=self.host,
+            server_port=self.port,
+        )
+        return json.loads(response_bytes.decode("utf-8"))
 
     def create_match(self, match_id: int, home_team: str, away_team: str) -> dict[str, Any]:
-        """Solicita o cadastro de uma nova partida."""
+        """Solicita o cadastro de uma nova partida via procedimento remoto."""
         return self.send_request(
-            {
-                "action": "CREATE_MATCH",
+            method_id="create_match",
+            payload={
                 "match_id": match_id,
                 "home_team": home_team,
                 "away_team": away_team,
-            }
+            },
         )
 
     def register_event(
@@ -52,16 +54,16 @@ class SportsAdminClient(BaseNetworkClient):
         description: str,
         team: str = "",
     ) -> dict[str, Any]:
-        """Solicita o registro de gol, cartão ou encerramento de partida."""
+        """Solicita o registro de gol, cartão ou encerramento de partida via procedimento remoto."""
         return self.send_request(
-            {
-                "action": "REGISTER_EVENT",
+            method_id="register_event",
+            payload={
                 "event_id": event_id,
                 "match_id": match_id,
                 "event_type": event_type.upper(),
                 "description": description,
                 "team": team,
-            }
+            },
         )
 
     def start(self) -> None:
@@ -93,37 +95,14 @@ class SportsAdminClient(BaseNetworkClient):
                     print("Opção inválida.")
                     continue
                 print(f"{response.get('status', 'ERROR')}: {response.get('message', '')}")
-        except (ConnectionError, OSError) as error:
+        except (RuntimeError, OSError) as error:
             print(f"Não foi possível conectar à central: {error}")
         except (KeyboardInterrupt, EOFError):
             print("\nPainel encerrado.")
-        finally:
-            self.close()
-
-    def close(self) -> None:
-        """Encerra a conexão TCP ativa, caso exista."""
-        super().close()
-
-    def _receive_response(self) -> dict[str, Any]:
-        while "\n" not in self._response_buffer:
-            if self.socket is None:  # proteção para analisadores estáticos
-                raise ConnectionError("Conexão encerrada.")
-            data = self.socket.recv(1024)
-            if not data:
-                raise ConnectionError("Conexão encerrada pelo servidor.")
-            self._response_buffer += data.decode("utf-8")
-
-        line, self._response_buffer = self._response_buffer.split("\n", 1)
-        try:
-            response = json.loads(line)
-        except json.JSONDecodeError as error:
-            raise ValueError("Resposta inválida recebida do servidor.") from error
-        if not isinstance(response, dict):
-            raise ValueError("A resposta do servidor deve ser um objeto JSON.")
-        return response
 
     @staticmethod
     def _read_int(prompt: str) -> int:
+        """Garante a leitura de um número inteiro válido."""
         while True:
             try:
                 return int(input(prompt).strip())
@@ -134,8 +113,8 @@ class SportsAdminClient(BaseNetworkClient):
 def build_parser() -> argparse.ArgumentParser:
     """Cria o parser para receber host e porta via linha de comando."""
     parser = argparse.ArgumentParser(description="Painel administrativo do sistema esportivo.")
-    parser.add_argument("--host", type=str, default="10.10.231.223", help="IP ou hostname do servidor TCP.")
-    parser.add_argument("--port", type=int, default=5000, help="Porta TCP do servidor central.")
+    parser.add_argument("--host", type=str, default="10.10.231.223", help="IP ou hostname do servidor.")
+    parser.add_argument("--port", type=int, default=5000, help="Porta do servidor central.")
     return parser
 
 
