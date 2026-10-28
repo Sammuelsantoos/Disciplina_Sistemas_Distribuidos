@@ -84,20 +84,7 @@ A organização das pastas separa as responsabilidades explicitamente entre o am
 
 Para inicializar o barramento distribuído local (Servidor Central RPC, Painel do Administrador e Terminal do Torcedor), execute os módulos a partir do diretório raiz utilizando os sinalizadores locais de host:
 
-### 1. Inicializar o Servidor Central
-```bash
-python3 -m src.server.main_server
-```
-
-### 2. Inicializar o Console do Administrador
-```bash
-python3 -m src.client.admin_client --host localhost
-```
-
-### 3. Inicializar o Terminal de Consulta do Torcedor
-```bash
-python3 -m src.client.viewer_client --host localhost
-```
+[Clique aqui para abrir o manual de testes passo a passo](./docs/MANUAL_TEST.md)
 
 ---
 
