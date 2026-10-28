@@ -47,55 +47,35 @@ A organização das pastas separa as responsabilidades explicitamente entre o am
 ├── docs/
 │   └── MANUAL_TEST.md
 ├── README.md
-├── src/
-│   ├── client/
-│   │   ├── admin_client.py
-│   │   ├── __init__.py
-│   │   └── viewer_client.py
-│   ├── data/
-│   │   ├── event.csv
-│   │   └── event_test.csv
-│   ├── __init__.py
-│   ├── server/
-│   │   ├── __init__.py
-│   │   ├── main_server.py
-│   │   └── services/
-│   │       ├── __init__.py
-│   │       ├── match_service.py
-│   │       └── notify_service.py
-│   └── shared/
-│       ├── __init__.py
-│       ├── infra/
-│       │   ├── __init__.py
-│       │   └── protocol.py
-│       ├── models/
-│       │   ├── __init__.py
-│       │   ├── match_event.py
-│       │   └── match.py
-│       └── streams/
-│           ├── event_input.py
-│           ├── event_output.py
-│           └── __init__.py
-└── tests/
-    ├── e2e/
+└── src/
+    ├── client/
+    │   ├── admin_client.py
     │   ├── __init__.py
-    │   ├── main_e2e.py
-    │   └── test_main_server.py
+    │   └── viewer_client.py
+    ├── data/
+    │   ├── event.csv
+    │   └── event_test.csv
     ├── __init__.py
-    ├── integration/
+    ├── server/
     │   ├── __init__.py
-    │   ├── main_integration.py
-    │   ├── test_admin_client.py
-    │   ├── test_services.py
-    │   ├── test_streams.py
-    │   └── test_viewer_client.py
-    └── unit/
-        ├── event_input_test.py
-        ├── event_output_test.py
+    │   ├── main_server.py
+    │   └── services/
+    │       ├── __init__.py
+    │       ├── match_service.py
+    │       └── notify_service.py
+    └── shared/
         ├── __init__.py
-        ├── main_unit.py
-        ├── test_match_service.py
-        └── test_notify_service.py
+        ├── infra/
+        │   ├── __init__.py
+        │   └── protocol.py
+        ├── models/
+        │   ├── __init__.py
+        │   ├── match_event.py
+        │   └── match.py
+        └── streams/
+            ├── event_input.py
+            ├── event_output.py
+            └── __init__.py
 ```
 
 ---
