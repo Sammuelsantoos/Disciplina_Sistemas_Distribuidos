@@ -1,28 +1,51 @@
-# Trabalho 3 – RPC em Python com Eventos de Futebol
+# Trabalho 3 – Comunicação Indireta em Python com Publicar e Assinar
 
-Este projeto foi adaptado para o mesmo contexto dos trabalhos anteriores, mas com a ideia do PDF convertida para um cenário de futebol, com eventos do jogo sendo enviados por RPC em socket TCP.
+Este projeto implementa a arquitetura de comunicação indireta baseada no modelo publicar e assinar, aplicada ao cenário de eventos de futebol. A solução utiliza um broker central para receber mensagens publicadas em tópicos e distribuí-las para clientes que se inscreveram no mesmo canal.
 
-A implementação mantém a lógica central do material: o cliente envia uma chamada remota em texto para o servidor, o servidor interpreta a mensagem, executa a operação e responde com o evento correspondente.
+Ao contrário de uma comunicação direta por chamada remota, os produtores e consumidores não se conhecem diretamente. O canal intermediário desempenha o papel de mediador entre eles, respeitando a ideia de desacoplamento espacial, temporal e de sincronização, conforme a fundamentação do material de referência.
 
 ---
 
 ## Objetivo
 
-Implementar um exemplo de Remote Procedure Call em Python para eventos esportivos, utilizando:
+Implementar um sistema distribuído didático em Python para eventos esportivos, usando:
 
-- serviço com contrato e implementação;
-- servidor TCP escutando na porta `5000`;
-- cliente TCP enviando o payload `publishEvent:Flamengo|gol|13'`;
-- comunicação por strings simples em socket;
-- estrutura organizada em módulos para manter o padrão do repositório.
+- um broker intermediário;
+- tópicos de assinatura (`match.events`, `match.status`);
+- clientes produtores e consumidores;
+- sockets TCP para comunicação em rede;
+- protocolo JSON para encapsular as mensagens;
+- manutenção de histórico e estado da partida.
+
+---
+
+## Arquitetura da solução
+
+O sistema é composto por:
+
+- Producer / AdminClient: publica eventos da partida, como gol ou cartão;
+- Broker: recebe as publicações e encaminha para os assinantes;
+- ViewerClient: assina um tópico e recebe notificações em tempo real;
+- MatchService: atualiza o placar e o histórico de eventos;
+- EventBroker: gerencia tópicos, assinaturas e disseminação;
+- EventProtocol: estrutura o formato das mensagens em JSON.
+
+Fluxo principal:
+
+```text
+AdminClient -> broker -> subscribers
+       \-> MatchService (atualiza placar/histórico)
+```
 
 ---
 
 ## Estrutura do projeto
 
 ```bash
-.
+tr-3/
 ├── README.md
+├── RELATORIO_TRABALHO_3.md
+├── RELATORIO_TRABALHO_3.pdf
 ├── docs/
 │   ├── MANUAL_TEST.md
 │   └── REPORT.md
@@ -30,61 +53,144 @@ Implementar um exemplo de Remote Procedure Call em Python para eventos esportivo
 │   ├── __init__.py
 │   ├── client/
 │   │   ├── __init__.py
-│   │   └── client.py
+│   │   ├── admin_client.py
+│   │   └── viewer_client.py
 │   ├── server/
 │   │   ├── __init__.py
 │   │   ├── main_server.py
 │   │   └── services/
 │   │       ├── __init__.py
-│   │       ├── football_service.py
-│   │       └── hello_service.py
+│   │       ├── event_broker.py
+│   │       └── match_service.py
 │   └── shared/
 │       ├── __init__.py
-│       └── infra/
-│           ├── __init__.py
-│           └── protocol.py
-└── tests/
-    └── unit/
-        ├── __init__.py
-        └── test_hello_service.py
+│       ├── infra/
+│       │   ├── __init__.py
+│       │   └── protocol.py
+│       ├── models/
+│       │   ├── __init__.py
+│       │   ├── match.py
+│       │   └── match_event.py
+│       └── streams/
+├── tests/
+│   └── unit/
+│       ├── __init__.py
+│       ├── test_event_broker.py
+│       ├── test_match_service.py
+│       ├── test_protocol.py
+│       └── test_hello_service.py
+└── pom.xml
 ```
 
 ---
 
 ## Componentes principais
 
-- `FootballEventService`: contrato do serviço RPC.
-- `FootballEventServiceImpl`: implementação concreta do método `publish_event`.
-- `main_server.py`: recebe conexões e processa a solicitação remota.
-- `client.py`: envia a requisição ao servidor e exibe a resposta.
-- `protocol.py`: encapsula o formato simples da chamada e sua manipulação.
+- `MatchEventBroker`: mantém a lógica do broker, aceita inscrições e publica eventos em tópicos;
+- `EventBroker`: implementa a estrutura de tópicos e envio de notificações;
+- `MatchService`: controla o placar, o histórico e a lógica de gol/cartão;
+- `EventProtocol`: serializa e desserializa mensagens em JSON;
+- `AdminClient`: publica eventos da partida;
+- `ViewerClient`: se inscreve em tópicos e recebe notificações;
+- `Match` e `MatchEvent`: modelam o domínio de futebol.
+
+---
+
+## Protocolo e comunicação
+
+A comunicação é baseada em JSON, com as seguintes ações principais:
+
+- `SUBSCRIBE`: o cliente se inscreve em um tópico;
+- `PUBLISH`: o produtor envia um evento para um tópico;
+- `NOTIFY`: o broker encaminha a mensagem aos assinantes;
+- `QUERY`: consulta estado da partida ou histórico;
+- `ACK`: resposta do broker confirmando a operação.
+
+Exemplo de publicação:
+
+```json
+{
+  "action": "PUBLISH",
+  "topic": "match.events",
+  "payload": {
+    "event_type": "gol",
+    "team": "Flamengo",
+    "player": "Pedro",
+    "minute": "13'",
+    "description": "Pedro marcou para Flamengo aos 13'."
+  }
+}
+```
+
+Exemplo de notificação enviada ao assinante:
+
+```json
+{
+  "action": "NOTIFY",
+  "topic": "match.events",
+  "payload": {
+    "event_type": "gol",
+    "team": "Flamengo",
+    "player": "Pedro",
+    "minute": "13'",
+    "description": "Pedro marcou para Flamengo aos 13'."
+  }
+}
+```
 
 ---
 
 ## Como executar
 
-1. Abra um terminal na pasta `tr-3`.
-2. Inicie o servidor:
+### 1. Iniciar o broker
 
 ```bash
-python3 -m src.server.main_server
+cd /home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3
+PYTHONPATH=/home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3 python3 -m src.server.main_server
 ```
 
-3. Em outro terminal, execute o cliente:
+### 2. Assinar um tópico
 
 ```bash
-python3 -m src.client.client --team Flamengo --event-type gol --minute "13'"
+cd /home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3
+PYTHONPATH=/home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3 python3 -m src.client.viewer_client --topic match.events
 ```
 
-A resposta esperada é:
+### 3. Publicar um evento
 
-```text
-Requisição enviada: publishEvent:Flamengo|gol|13'
-Resposta do servidor: Evento de futebol: Flamengo marcou gol aos 13'.
+```bash
+cd /home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3
+PYTHONPATH=/home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3 python3 -m src.client.admin_client --action goal --team Flamengo --player Pedro --minute "13'" --topic match.events
+```
+
+### 4. Consultar o placar
+
+```bash
+cd /home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3
+PYTHONPATH=/home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3 python3 -m src.client.admin_client --action query-score
 ```
 
 ---
 
-## Observações
+## Validação
 
-O projeto continua mantendo o conceito do PDF, mas com um cenário mais próximo dos trabalhos anteriores da disciplina: mensagens de futebol e eventos de partida, representando o fluxo de um RPC simples em Python.
+Os testes automatizados do projeto validam:
+
+- publicação de eventos no broker;
+- entrega de notificações para assinantes;
+- atualização do placar e do histórico;
+- serialização/parse do protocolo JSON;
+- funcionamento do cenário de eventos esportivos em arquitetura indireta.
+
+Comando de verificação:
+
+```bash
+cd /home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3
+python3 -m unittest discover -s tests -p "*.py" -v
+```
+
+---
+
+## Observação final
+
+Este projeto está totalmente alinhado ao modelo de comunicação indireta do trabalho 4: ele não implementa uma chamada remota direta, mas sim um broker que recebe eventos públicos e distribui notificações para consumidores interessados. Esse é o comportamento esperado de uma arquitetura publicar e assinar em sistemas distribuídos.

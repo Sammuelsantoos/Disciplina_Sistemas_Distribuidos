@@ -1,21 +1,19 @@
 import unittest
 
-from src.shared.infra.protocol import RequestReplyProtocol
+from src.shared.infra.protocol import EventProtocol
 
 
-class RequestReplyProtocolTests(unittest.TestCase):
-    def test_build_and_parse_request_round_trip(self):
-        protocol = RequestReplyProtocol()
-        request = protocol.build_request(
-            "MatchService",
-            "register_goal",
-            {"team": "Flamengo", "player": "Pedro", "minute": "13'"},
+class EventProtocolTests(unittest.TestCase):
+    def test_build_and_parse_publish_round_trip(self):
+        payload = EventProtocol.build_publish(
+            "match.events",
+            {"event_type": "gol", "team": "Flamengo", "player": "Pedro", "minute": "13'"},
         )
 
-        self.assertIn("register_goal", request)
-        parsed = protocol.parse_request(request)
-        self.assertEqual(parsed["object_reference"], "MatchService")
-        self.assertEqual(parsed["method_id"], "register_goal")
+        self.assertIn("match.events", payload)
+        parsed = EventProtocol.parse_message(payload)
+        self.assertEqual(parsed["topic"], "match.events")
+        self.assertEqual(parsed["action"], "PUBLISH")
 
 
 if __name__ == "__main__":

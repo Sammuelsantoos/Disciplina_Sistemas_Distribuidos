@@ -1,260 +1,156 @@
-
-# Relatório Acadêmico – Trabalho 3
-
-## 1. Introdução
-
-Este trabalho teve como objetivo implementar um exemplo de Remote Procedure Call (RPC) em Python utilizando comunicação por sockets, seguindo a lógica do material de referência do PDF, mas adaptando o cenário para um contexto de futebol e eventos esportivos. A proposta central foi manter o mesmo princípio de comunicação cliente-servidor, porém substituindo o exemplo original de saudação por um sistema de notificações de partidas, com gols, cartões, placar e histórico de eventos.
-
-A implementação foi organizada para manter a estrutura e os padrões observados nos trabalhos anteriores da disciplina, respeitando a organização por módulos e a separação entre cliente, servidor, serviços e infraestrutura compartilhada.
-
----
-
-## 2. Objetivo do Trabalho
-
-O objetivo principal foi reproduzir de forma didática o conceito de RPC em um ambiente distribuído, utilizando sockets TCP para permitir que um cliente envie uma requisição para o servidor, o servidor execute uma operação remota e devolva uma resposta ao cliente.
-
-No contexto deste trabalho, a operação remota foi representada por eventos esportivos, como:
-- marcação de gol;
-- registro de cartão;
-- consulta do placar;
-- consulta do histórico de eventos;
-- encerramento da partida.
-
-Assim, o projeto preserva o conceito do PDF, mas adapta a operação para um cenário mais próximo do tema dos trabalhos anteriores da disciplina.
-
----
-
-## 3. Fundamentação Teórica
-
-O modelo de RPC é uma forma de abstrair a execução de uma rotina em um sistema remoto como se ela fosse uma chamada local. Em vez do programa cliente lidar diretamente com comunicação em baixo nível, ele envia uma mensagem com a intenção de invocar um método específico. O servidor recebe essa requisição, interpreta o comando, executa a lógica correspondente e retorna o resultado.
-
-No contexto de sistemas distribuídos, esse modelo é importante porque permite:
-- encapsular a comunicação de rede;
-- manter a lógica de aplicação isolada;
-- viabilizar uma interface simples entre processos distintos;
-- simular chamadas de funções em máquinas diferentes.
-
-No caso deste trabalho, a implementação foi feita com sockets TCP, em que o cliente e o servidor negociam uma mensagem textual em formato estruturado, e o servidor responde com um payload em JSON contendo o resultado da operação.
-
----
-
-## 4. Arquitetura da Solução
-
-A solução foi organizada em módulos para manter clareza e coesão:
-
-- Cliente
-  - responsável por enviar requisições ao servidor;
-  - pode atuar como cliente administrativo ou cliente de consulta.
-
-- Servidor
-  - escuta conexões TCP;
-  - recebe a requisição;
-  - despacha para o serviço correto;
-  - responde ao cliente.
-
-- Serviços
-  - contém a lógica de negócio da partida;
-  - processa eventos de futebol;
-  - mantém o placar e o histórico.
-
-- Modelos compartilhados
-  - definem as estruturas de domínio do problema:
-    - partida;
-    - evento;
-    - placar.
-
-- Protocolo
-  - encapsula a representação da mensagem de requisição e resposta;
-  - padroniza as chamadas RPC em JSON.
-
-A estrutura conceitual pode ser resumida da seguinte forma:
-
-Cliente → Socket TCP → Servidor → RPCService → MatchService → Resultado → Resposta ao Cliente
-
----
-
-## 5. Modelo de Domínio
-
-Para representar a partida de futebol, foram definidos os seguintes conceitos:
-
-### 5.1 Match
-A classe Match representa a partida em si e contém:
-- nome do time da casa;
-- nome do time visitante;
-- placar da casa;
-- placar do visitante;
-- lista de eventos registrados.
-
-### 5.2 MatchEvent
-A classe MatchEvent representa um evento ocorrido durante a partida, como:
-- tipo do evento;
-- descrição;
-- minuto;
-- time envolvido;
-- jogador envolvido.
-
-Esses modelos foram utilizados para manter o histórico da partida e atualizar o placar a partir da operação remota.
-
----
-
-## 6. Protocolo de Comunicação
-
-A comunicação foi baseada em mensagens estruturadas em JSON, seguindo a lógica de um RPC de requisição-resposta. Uma requisição contém informações como:
-- tipo da mensagem;
-- identificador da requisição;
-- referência ao objeto remoto;
-- identificador do método;
-- argumentos da operação.
-
-Exemplo de requisição:
-```json
-{
-  "messageType": "REQUEST",
-  "requestId": 1,
-  "objectReference": "MatchService",
-  "methodId": "register_goal",
-  "arguments": {
-    "team": "Flamengo",
-    "player": "Pedro",
-    "minute": "13'"
-  }
-}
-```
-
-A resposta do servidor segue o mesmo padrão, informando se a operação foi bem-sucedida e devolvendo o resultado correspondente.
-
-Exemplo de resposta:
-```json
-{
-  "messageType": "REPLY",
-  "requestId": 1,
-  "success": true,
-  "result": {
-    "event_type": "gol",
-    "team": "Flamengo",
-    "player": "Pedro",
-    "minute": "13'",
-    "home_score": 1,
-    "away_score": 0
-  },
-  "error": null
-}
-```
-
-Esse tipo de estrutura mantém a semântica do RPC e encapsula a mensagem em um formato legível e fácil de interpretar.
-
----
-
-## 7. Serviços implementados
-
-### 7.1 MatchService
-O MatchService implementa a lógica de domínio da partida e disponibiliza operações como:
-- `register_goal(team, player, minute)`
-- `register_card(team, player, minute)`
-- `get_score()`
-- `get_events()`
-- `end_match()`
-
-A principal responsabilidade desta classe é manter o estado da partida e garantir que todos os eventos registrados sejam coerentes com o estado atual do jogo.
-
-### 7.2 RPCService
-O RPCService atua como camada de despacho da chamada remota. Ele:
-- parseia a requisição recebida;
-- identifica quais métodos foram solicitados;
-- encaminha a chamada para o MatchService correto;
-- gera a resposta em formato de retorno RPC.
-
-Essa camada é importante porque separa a lógica de transporte da lógica de domínio, mantendo o código modular e fácil de evoluir.
-
-### 7.3 NotifyService
-O NotifyService foi incluído como auxiliar para formatar mensagens de notificação relacionadas aos eventos do jogo. Sua função é gerar um texto claro para cada atualização registrada, como por exemplo:
-- gol;
-- cartão;
-- encerramento da partida.
-
----
-
-## 8. Fluxo de Execução
-
-O fluxo executado pelo sistema é o seguinte:
-
-1. O cliente envia uma mensagem em JSON para o servidor.
-2. O servidor abre uma conexão TCP e recebe o payload.
-3. O servidor chama a camada de RPC.
-4. O serviço correspondente executa a operação.
-5. O estado da partida é atualizado.
-6. O servidor responde ao cliente com o resultado.
-
-Exemplo:
-- cliente envia `register_goal`
-- servidor registra o gol
-- placar é atualizado
-- resposta informa o novo estado
-
----
-
-## 9. Casos de Uso
-
-Os principais casos de uso implementados foram:
-
-### 9.1 Registro de gol
-O cliente envia a operação de gol, com o time, jogador e minuto. O servidor aumenta o placar do time correspondente e registra o evento no histórico.
-
-### 9.2 Registro de cartão
-O cliente envia a operação de cartão, com o time, jogador e minuto. O sistema registra o evento, sem alterar o placar.
-
-### 9.3 Consulta de placar
-O cliente solicita o estado atual da partida e recebe o placar do time da casa e do visitante.
-
-### 9.4 Consulta de eventos
-O cliente solicita o histórico de eventos e recebe todos os registros da partida.
-
-### 9.5 Encerramento da partida
-O cliente pode solicitar o encerramento da partida e receber uma resposta confirmando a finalização.
-
----
-
-## 10. Testes e Validação
-
-A aplicação foi validada por meio de testes automatizados em Python usando o módulo `unittest`. Foram implementados testes para:
-- registro de gol;
-- registro de cartão;
-- serialização e parsing do protocolo;
-- validação do fluxo do serviço.
-
-Os testes executados confirmaram que o sistema está correto e atendendo ao comportamento esperado.
-
-Resultado da execução:
-- 4 testes executados
-- todos passaram com sucesso
-
----
-
-## 11. Resultados Obtidos
-
-A implementação alcançou o objetivo proposto, demonstrando com sucesso o uso de RPC por socket em um cenário de futebol. O servidor recebeu requisições do cliente, executou operações remotas, alterou o estado interno da partida e retornou respostas com sucesso.
-
-Além disso, a solução foi organizada de forma modular e compatível com o estilo adotado nos demais trabalhos da disciplina, preservando:
-- organização em diretórios;
-- arquitetura por módulos;
-- divisão entre cliente e servidor;
-- uso de classes de domínio;
-- presença de infraestrutura compartilhada.
-
----
-
-## 12. Conclusão
-
-Este trabalho demonstrou de forma prática o funcionamento de um RPC simples em um ambiente distribuído, mantendo o conceito geral do PDF e adaptando o exemplo para um cenário mais próximo dos demais trabalhos acadêmicos da disciplina. A partir da interação entre cliente e servidor, foi possível observar como a lógica de negócios pode ser executada em um processo distinto e retornar resultados ao cliente de maneira estruturada e organizada.
-
-A combinação de sockets, protocolo JSON e módulos de serviço mostrou-se eficaz para representar chamadas remotas em Python, preservando a didática do conceito original e ampliando o contexto para um sistema esportivo realista.
-
----
-
-Se quiser, posso transformar esse relatório em uma versão ainda mais "formal de entrega" com:
-- capa;
-- autores;
-- resumo;
-- abstract;
-- referências;
-- e estilo de apresentação acadêmica mais típico de universidade.
+%PDF-1.4
+%���� ReportLab Generated PDF document (opensource)
+1 0 obj
+<<
+/F1 2 0 R /F2 3 0 R /F3 5 0 R
+>>
+endobj
+2 0 obj
+<<
+/BaseFont /Helvetica /Encoding /WinAnsiEncoding /Name /F1 /Subtype /Type1 /Type /Font
+>>
+endobj
+3 0 obj
+<<
+/BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding /Name /F2 /Subtype /Type1 /Type /Font
+>>
+endobj
+4 0 obj
+<<
+/Contents 13 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 12 0 R /Resources <<
+/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
+>> /Rotate 0 /Trans <<
+
+>> 
+  /Type /Page
+>>
+endobj
+5 0 obj
+<<
+/BaseFont /Symbol /Name /F3 /Subtype /Type1 /Type /Font
+>>
+endobj
+6 0 obj
+<<
+/Contents 14 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 12 0 R /Resources <<
+/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
+>> /Rotate 0 /Trans <<
+
+>> 
+  /Type /Page
+>>
+endobj
+7 0 obj
+<<
+/Contents 15 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 12 0 R /Resources <<
+/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
+>> /Rotate 0 /Trans <<
+
+>> 
+  /Type /Page
+>>
+endobj
+8 0 obj
+<<
+/Contents 16 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 12 0 R /Resources <<
+/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
+>> /Rotate 0 /Trans <<
+
+>> 
+  /Type /Page
+>>
+endobj
+9 0 obj
+<<
+/Contents 17 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 12 0 R /Resources <<
+/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]
+>> /Rotate 0 /Trans <<
+
+>> 
+  /Type /Page
+>>
+endobj
+10 0 obj
+<<
+/PageMode /UseNone /Pages 12 0 R /Type /Catalog
+>>
+endobj
+11 0 obj
+<<
+/Author (\(anonymous\)) /CreationDate (D:20261115164150-03'00') /Creator (\(unspecified\)) /Keywords () /ModDate (D:20261115164150-03'00') /Producer (ReportLab PDF Library - \(opensource\)) 
+  /Subject (\(unspecified\)) /Title (\(anonymous\)) /Trapped /False
+>>
+endobj
+12 0 obj
+<<
+/Count 5 /Kids [ 4 0 R 6 0 R 7 0 R 8 0 R 9 0 R ] /Type /Pages
+>>
+endobj
+13 0 obj
+<<
+/Filter [ /ASCII85Decode /FlateDecode ] /Length 2046
+>>
+stream
+Gb!#\9lJcU&A@sBbY]f'<@%8%SD5Fl$8b<%lDVm`>fl;n>\9=Ee,9'Tfd/)iU1b]5\1fJdr0VnN52OL3TIG<kpDIU3^MW2dpAkF@D>"[f-8XBR8aePr?Z1Pmak;Q;bOoDR>-IE"DG8jqF1B&u6#-r717/Ct=L"iEb(bN4Cbf?f/)9#-2#9kBU>/4ra='c,Yt2=N4Npd+BcDd7g).(.l+NtX'l>"*o*`5q2#pmRnT0S)5&[\h]bN[@4)/1oc3"H/4o/Gs<N]f9NFki]7[j=t'4k]'87qM'ZDGcuV766;W*KQFo0h>;qOeLiCALos;S6j;d[dcq(T&A*b92`r170\DP!Lc&jO37fC,l]2=KI-J(`(TY=U`KA#D#:3qF#?HhSDue2Gr:G7>\B,J(3_X8i4LJUReWPErJ.]V(+?oi9O1OY<(OLNVAW8muJE:,:a9>hU!N=m'K@&!O'=WiPT[m.nR8?Pa)if*>QW!q<MYiC<Xcmg17]_&dMJ*@8RkR;MmjBI=#u]8njM\q(s>jdVsg$Yn@0rTAI;S+D#L,0?T5<pphjf4cDP]0baOi8V2RmjkbOb?k+h1&!a\J'W!Blbhh!i'G\LSF6rI\3Po[LFU(,)15>hLe9>ltC+Gj/Jodm?TM)RBbNWQK?A3/_q&^NkTWKsdjC\g:.$I8MAe^.ChG=1^%jn<r0W"pOX3q0.kolKQMqm=M#E^m[8oP0fS8&a7M@PO.am$[7m>d@\$=j:D9/t+A>3.Y#82*+CWe:+^IAm_=iUaH:>P-L_7uCm7pg;`WVtZ_]>S,1XnduG$RK\CC4X-;"EU5QY&aU*cdP8\Hql5lBSPJC/<$E'40^"Tq'gJ+k!$105KFirU=(dOhV<0HOT]r+J4q%)Ci&SiFp.1KKIIH<mC_2^$=.8&\(S!D/D.lC.`c@t^$kSXaGAS@9='C4I't'Z*$QT&NqW88cY1Sbi1JafSTl'&ZO1e*"QeulKZ'2P3:G%OJ>lbX34(f`27BDEsja\[W*T2`qbaoS)(TJuO!/cc]:Im9@pdN,+dGKLuW*"dq._+-)B'Z)V:uR'kmN*W$$YrDa3eq[u<YtYW/::da0BT]\E&dTm_TC]'nuJi_S`i@H=n8XhX015(*8-L/CUaIc_g%oeXAas:_!&=\O/XTDV_^ujVglm:S`?TtnJ>=Po:<f;fr2GqX.pHm-L["Lf:L-O3)rcOO?d&1@Gqhn]?3/u)+kUg0YZ\\MFp[_'@1t2'*i*AKNWYlQYgI%cJV-nJm8YUeJ27Ne*0e<Y(IXe3][sO*4Zc;U^-L82SH&GdH^Q*m2ld$#\AG%;V\AoSMAWumd:)R.%;htDMR.=M_9b#UI.5V5tRhgYZs640\_@'PADoIf;m$+SnQfqq-;;tl#.IQmG#<jAhVEK2p0F-FOGRHg.SMhm^+&H9Uc[*P$[q3oM>lC.nIQL\;o$n;hSs+/]4qp7EUUql!E3!i_$f2Q_p7/*4hDZaD/:f[bem\dp2"(BU04Vlfa&'Q_rs-;mY2ar44fS39@_n_W$Ead>#W&PEfk9\j(.=-Wb?%fKI-kcYdIEK\fdUioI;,O;h>X7go]235;u0L"#726t*8Qh[MGMpc*5@nRSi7[#qc>M]4P^Sbk1b]hs,mo>`K8D/T,&Cj\pE3*RqYRm8!_$,,q/V#T&S:mgA_K6B_6OZWYd'Q!-omo:ja1tuNT<[%]F4omfFnO/i8r1a-LE`<:@j1CI6%[Z<u9-7uO_<%LT=C*_D?.c^@*WCBk(G<Z_DonEm5'6>Q'f;6KLl7i?<*_]!@Miph_)usVofaD[Rkanc@&U*S%3o2\/EZ_NO:md%^8J"An&sFG;qFTK&H0p[dd/s&#\k\Z?V+m;!^(T4DBk-p)cTXS=d:1@UbB[P*3jZ*\6SYcK"hoqO.J<eEK)LF2nRi$9s/Yqr2't0:UK1A)5E=+XD,bKLPcU%.``3X3)mca)#n\Q04`d3l>MEWC_=@n-RBOp<:$hL,pJJ\:gdl3Fqn52Z%<S)e6`B$(OF9j%/,XIZ`EC'II=VBJqnR7:6p=BTpm.W-"H9~>endstream
+endobj
+14 0 obj
+<<
+/Filter [ /ASCII85Decode /FlateDecode ] /Length 1582
+>>
+stream
+Gb!#\a`?E"&A@rkqWLL"ZGBO]:7gj;8S2^Ze-.0A))EO("/%-/Y>7*eLiQ1WnqC#JAXV1WGJAU_&;+271&mg[!:Mjco9fUe@']qN/L/pG$(j+W:KOWg)6G$@_W>O??Ju52\Ffr9It_Z@^Km)>VJ,\7D>']pY5cpHEPmLa(EBIO+]fO?+G!at8o>Dpj$ns\C"!MYNDg3f>/$=,i(mX/gP/:%WD%rI+lalpQghJ<9UE1?PgDnRGHglDS)</X8=ll3H-r5BC;Zb+:USF.?lt68XJK'-A0rCo_>2olV8\3Mc]g&mi-#F!E%:>^D1i/%%:dt]a,;G1\BmeM>8aul,m;sPlXYR9$8a].`c8UMGpj358E7UYPbOT.C6*c^7Oe=k*bN\<heCOjl;)8Z)T>##SjklmLaj0ffhK:2I`'cO,X^-Qo(`iT?O_&.`&I`4qA:SD`mGFebu:a7oY*f\^[&Q#D)d:u=g,m8,VaWd:[fRmm_KA6&Aou7*J^1dTZs'pki4!\"VF)N\[J*-(j:k2`OI$`1Mr(mD.ks/>LXtio=1tRKq]Gus,d`m:KY02Bk:%pm"sF5@q;nnn:1PH24j58rlBe"&2'b/4Q7fKk4]`;$#^aC:0!,FGbuiLU9nQcT7l7MB!5kB1&,SClY+Du"2`Y9\I#r_<10_C.shau4<F5V>n<TuC<X"t#DA`P$eJUKVZ'CSnKek$l@1m?)h)-GA"9b8bnffVF8%CUG=W.#2HgI060;#&0P2D@=W9`hPE2Eq$]:j:^!?-]53anKV[D/KLYh>]3p6-*^Z_M=DHFJ0qBmb&-b9Gq;]F9M_4B2[`b>",dkn0Ao:_>h1?4'<++6W;UnQX?F@\C#6gjhN]7VY9%HeJ?,<m_+YGL=I$;.:gg@\33@QB[$+@75Y%XP/FCi8:J969T2pCS1PTScYt,X?o5TqYXs4dW+S6D*=kVCL.2ILV?/+;.(0AbbJMBhjK8F#sEQ_<FYV*kRP$hP$LWBW<MZ/OZ'0`,d-;1K4i8*3`sXSc+dj3RQo,9Ill[6=VoO+u)cgp14TCW(\[U4YV<3.#ZSD3`BPMX#ZG"U,_p#jR/P@8',Fo&OinTo9Z`UHL+GAq&Gt9DhC#`8"M;c:"SghI.6]LnHP!Ph0eQG:V6kM;)?M//f60sd7)T2fUBcPpjsZ+aSN/;fQ0$hFZP7%9[gJ*n9JrKM02Smj7H1R(ITrP20,Te79Wl>m+<CWp0^MoUas+n`(aR/<11)k%k@(IALE2nP5ZiKro\'lF(`g2Dfsl!eer;n,^eQ'HQ5!WH@_o]_b8D.<U!fTebEs`#4$AC.4o[.AH\Nt^F2M*nnDYX8:N)T#A'0q%%i>>Sf<)^N\C!LpoC(=(H\/3%6[d7ru?-1RVnH;EmpJ-J;k=F[^tPZI]?ZSHof?WA"TE'/9uTW0iTlWW4rjB[a$lkd(Zn)oZ;3C33-BPj?'>$6Ah+KW^^hn@=*EKiEH`ZHeWbnLrt=[XV0&ok'4?["1^)8RI]HNU)g^agOU0cg'qsDdt"VamPL>q<X%:p%QZhI4A8,5b`3T5cD`h<&9p#nE$^Urrg$=KqfElZA[qRIB78':~>endstream
+endobj
+15 0 obj
+<<
+/Filter [ /ASCII85Decode /FlateDecode ] /Length 1480
+>>
+stream
+Gb!#\9iL@9']%qRgr\^+%cg'%lm-]'f>:3og;9>V3u1Vs71cjX,KZ??VuOG#9&]u0SP1q`J5!1Yh/bf&cFmgH`"*6JR3MJ_UX.PN=@BKB@\^bqB"udEXS:4Sl]n4ONMl;S17:o,7.9H2>KO7_p!aq8)eRL8[]HaP-8\XO1W,IqDrg9->%("K+,/10.UeQ`6BMifBq=4;"MRr,kOj`i`6!n7qCYO;16\5K:),]_k5:`oJ]g_a0'Jm>ZB1+Doqcj&?=s*f*f]\+CZ=&s8$b^SI8=M2>$:FE#s6dEKA0bjq)95$\fS21Y/`'=,@YZ^4:Rm["1gADktDm3?=(J(g=:q)%t;s,/pC0:U16b6\hkEL7MkGdb`A"%"[TH<V%Ja:]p>I9/ddUQ?ldM&'nj4K;-L]L#?CH0^r&1Ard([pj!?@kF(-Rj,^VdXMO*6*Q^W<O$JR^_jgSNbir3*BF6dqN;%*dd4"!ar.%Eb\PY2lpXZ#l!_/Xs9:CtZ`Rq=dTM)bS+D%US=5Lk@C#HX(jCP9*#Fk0!MZq!;T%RtoS2t2=6OhZUM:_a7:`LdO_o-TuH%roWE0UJ?OU=R5N%c\4brR5=4R@Lj*hs!aFrCcG5f1sP4nTfP]qraLSdut5q6CBu<_AceEidd`Ml(/3a]T)6/UWOAKJ>)1;6WLspL%2$X7;`Ug3Oo4f8s[P\\&73$h,["C(ITllAn:#!/fU-JEKfX5Fh0O%oOJG4rA6J6jn)Gj;@2[!W]ZAV(o8%-?*IkZL6k:-g[DLrEom5R\a>F>]X\b!&bHjU^Nme^Sn1/TeuP`#I6,#)Q^Z]8SAmOlR_HHqY2=h3H[:D8Jsd?t?nCB\Jb-#"&3j9_Q[,?>B;0ocK>njbK.qh$M9iTO_9605/Wa\Mpd"n5$[_$-+KY`T?lCaEFT?s*]OL]E6)"F?^=0C-I%tE.me5i0:;2e0m=A%CoDSYP?p()HKNUnX%3b]SbV+@j&..(t-D%Yt@7O9_",?1W_0EcZ2t!u,!%ARe!2A`:en9JThn66,\d>q-p?ITL\o^CXW';<fd&4M?pJ<)g:Gsle$Sm^UELkf?61H/R\l0ZFnLjH/`0!R&EK8?4fQ\BZ`jYbL7[q$AkDRG)_1Gh(g1$trL&V"S_:gHo$Te+`JBj72E/os3*e-"gmcmV!i0f0!rK4VC8)je2Bi>*,"![35f6HT:G1"A+_58=ALF=re9Gkl08,,()PL^M=*AM]FZ!9\(N;a2OKoVlF9QFLqEaHqa`\)F&\(3>,hU$X]h,e/q/*O+%`XFjbD.#8lk7r1?TN+;FCbloZ#e-!4im6#b4`E'n=M"*O(meQcIuE5tg0di%c+X+".OAT,9"@RX3'AR)1&^P'q<'!PBf%thVDUN?X9<s')BnNh,>Mo-d,(Fc[rFg]hS!_b?bauRPG,m9\N[D_8qp42OfKg)Yd5&CL(88\0CTM#<JUfJi++:t2IT^&CPA&9rTajVr<H/gNG/~>endstream
+endobj
+16 0 obj
+<<
+/Filter [ /ASCII85Decode /FlateDecode ] /Length 1606
+>>
+stream
+Gb!#\9lK&M&A@sBbV:\QfD;^&Vl/okpXCBm^tVd?ZpZ9H8>JRE`hL5^Dl=2iWNA.oG`fqK8;2FIoB+;Z!A3dSps6#eqI;n-I1@Y2BsXQWT#\56P<Nhq0=.<u1JVYlNok&e:@TF40<_79eM-YO>PJO%1rHW8YZ!rZ'"`f2"RRhSa5%)LI4UW4[A:s6]W$l:8QdttS5WVLgJ>3P7[p"fe<g4&*\ZF+4`5J!NJl3P+39kEH&U_trZX^t_,b,I#g/-I<3+/$ap0p#P:4:&MTO+1hRpm#GE9RTj]BI-VpG\5C&#H?o-I_qjR!S4ds=78PLOq*8FA4VL'Xf4X]7!&mgU.83,-e"8$Qa#_*'eM9"W<a.+3p=d%UMKXN]a+;CT!e:\^T_fbQ%N\T%.uN(qmhF6lZMkT0#M]K(i3=$!8*7J#=hLE7pZ`B^g[-7,F'H9E"XSS4q#r]n(:M>T!4&a=@(:-%fMd*=&PYZ"_6&9Mp_WDOXcS[##YUjj"/c[lY0c-Kcm%gQ8$6:su*;4=;]$jaPe[uuO4a!ccoQ2);c4\!WV%Su[Fi61f$kX%bj&eJBoiBsZSNB2<m,GjU<$/Bce3YS@<cTW9OeL!e(iccNUj,a\H9S6\X$U+W:f-cr$F%W]05QdQ+JQ93W3\bF"<`q21n)8.t-!MgUBopMR6,r8"l"U6S0Ft9D,8DHA2]tsVU/:m\/!V[$ASLm&"t\rg1.?<17S[HPY/Rn]N6_bn#L"st35mr#Q1,U48LD5ZM%nBG7-S"$)<X0O8\cQF;8Y5CEN>%h7N7pN`GrJ<dh'Uh.8)ibLhj%(WbB1[d<`#4AZNZj]+l4QEFQJIF)fgqgeVu(nG?dl0n.1EV/sUKgiIoSWN=jr$5oS.kY8aC)kQ"39-"P4&jh6_rka[X*dY5IGA?le_`!]BN)sXl2GSiS"b/\5O2A;!_cJdrno9%X0]VY+1*WPFX)t3gJc6sZm%aW'6@tu7OZlSm2pcVC:?m+PoA\ZLrMWOaH8<HN]h=UhM"$Nk[=>^5Lud,VZo+h#Cfd^lMMD$d[Fu)@,tn(5mP9Z<D;68Fq&n,"Qs>IIpAOsrs-Wq1Td_qHFgR[QLl\iQT[RKNH[*8S&!OKaFJ:$I8%k^&\LV4H2F^rlOW(dO0jSi\7&qZIm%_etm51F2mc7bXhm84#%LNrR1gG+FTc0ZSX]===nIu_Km:orX/UUB4'6Lh6L!-gY65[E!i'+;c_.$1>TNc9f6brTBjP54_IDGQM`AS#S%*h1D]Np3:Sa(oWBiH[tDFp1_igJOiZ]hItkg]@T3^daJi(#2s/4NJte]Munb`k7V)Vd<98qH+:?(>ib47[X\(:hSP5s11]W65;f88`=2e1aO+#!uV(k7:j&j:$rQh@u;K>nGoMP2_nu\6L?fE?(]J2r&A<A7<S52D)SLBs(lYl\l]?T=K@"0mFjpi+X/kD'.-0*+!=LimoI:]]K]\Q?ts$_P1(2EI=SNP0UKP'r?$6E0>BL;i5n2*qJ]_5&lOLoL4+dYt@bt^`96.?N?.?nf,l.5)t.%8MN`e87c!,\g(R3.3luPH]**lC)0phf*STtE^%0PHlML!mna>"!gtflL0K^UVV-Hs$I.u~>endstream
+endobj
+17 0 obj
+<<
+/Filter [ /ASCII85Decode /FlateDecode ] /Length 1856
+>>
+stream
+Gau`S9lo&I&A@sBm*Y2KW_%WM4f*"9l833FduuEr$/*CM!"FII1r$bCQQejI&tO"Q)38?s+G"sQDr3`jFGHJ^5)Y<^f+%]N5,0[,c&T+*FAA;ikhYC`q'J2Y3FC6M4e&V+pM2mBKf`ECO#M;AlaNA2VSZ@oAM`"SaW'&Jfp"BU-65\,5K]Em4j<%=r6G3N[/!+Z+8N:Yn8ip8En-e,^,031(sKW%#.X))>S>7bMV^8iq6]aJp(C<'W:1Ou2H&'N?`@SMW6upYME_$/T"Lh%"\!bYbg$nPr&bmI4q)Hg[[^jn@*n:.[T^euf_,rfCjd2WS+UlS)`D9>"U4j<@L=0l6I<i<@+f=^pi!6^87q>N0-,rLnV_AS^,I$s)H?"FOZgKI[8eWn[m=-!^GgfOk+#l,bc,:2,F'`VV-R&]q"R<HbO:F(f=8\BV^c9n+HV#=/SC..%b^tl(ASp7'Z!1Ci@FCU>DoQ"'W?frTY<]d^Cb[59cKDobLur8Qc.iMm+T5DDJ):iB!:F/6%!4u/gr9*L8/8rV6:qPMhNqq!(p^ic^q=a%H_HNO12eMq9cjVE1uWPn!5hDR']c[N.W*Ea/!:7/Zuosgu#kIVt2A9X^bk)B\nM]1AEpH`aUV8cBn+gAVFGsO_@\D<cc.-WDIMUod2SN/s.78A6.Ql^,6R!m*;A6<!R#@67O?fP]M!lh2OK>T5g^d!qd:ZfH80QWFYragP-)qA5)5>GAAsbpG/R'6UHR'[N5\pW)-6W30E]G+!Y^2f+ue>#9=[+[aP--/V_.5PYmbM:K,.R3JLGWhDIlC]q*76![1XU9r>?)U9KA4(NF>l*Ek/\6>puhOdQK"rNXWq)//D'b68rE8->dtGs15KPN55:\[]8d7Ygg1ANJ'+.s+VH\M6ZKhk?/T.uOfndStLk5,hFE2a"nA2K,NtJK1<_'7`$_!9ZE0H0nEbj<k,=<V?aV'[d\Sa%_a]-!YlYY^P2P6-aINWNE'*ea1TQKRDT]T[X9`<6qe*a9jDufn>a0E2-:TgOB)!rK%4Lmkf:%aMH_Q-(*#^kBuu<a#9F8Dr)5;M(cHIH$7`7!W?dki#VZt0@6B>\UYFl(;qN@)=M8Xl")OnTFVICLd(?&T[GrCMtK6hoeMu.GMY.S@bZ_[/+Ck2(:55)g8IF<eX?<9K81i`ZmTTV!15Y8/dWak6ECTc!rt-IS=iht.O]Fd0C/kO3^Q3/Qu;&6mJ2FV8(k0DF/M]f(S109e<JVh+[K"`,_TDj<n>=o]n:cs<Oj%'\5"1;CQurms'om/=Es]gDPONV#B^aVASk,\Enu#:@ld[<R>/oN_5+k</%"@,!AWNN(1N`;MlM`t4/Cb<"]8L^<_3bTp5nDCTlNonTJ"MFbcbnTamOkfXZ\qd+]WK2LLNsA"&n.lLJ]m16b&`c()Ke8E>,aaZk$TP)mJB6@hOioMLN_q7"L[/`AnNK;ZmM)^=e<]%0j`R$pr$1BQ=ff1LJTCS85t[-P4C@qhUCV27OXKp*b@[j]0FG(U'.;\O^$pEPl`(^,KrV-l9dh>nt.kokFN?Ck>9f%!upe@Y!sI70?bL3`:3g/27XWU5r`i%;$cBB$i)]N6NU?j3S/'hG:e'AhHhh#MU_Gr<C:'m,c7'F?i(\IP".p"@H66HkY4\-YB3Yr9^,$%"f0oE=.''>*\%hRpTlNCB`3,2?bk0R<[(FT!&Rj3!>7NLc%cZOKt3!S0pbqUaj?%BE?"!WAmMtCjB%>ZM\9`Ic^7`/[/8<7#$F%&//7i`OuO6D"FkLNP+[()bF?r)>K&hR,Hk(CNtrIf8i*sI9t2(Vj>nP?'shdd\"(9h/I(N7O5M%!qYZje$8MWdER0/Y=Yb~>endstream
+endobj
+xref
+0 18
+0000000000 65535 f 
+0000000061 00000 n 
+0000000112 00000 n 
+0000000219 00000 n 
+0000000331 00000 n 
+0000000536 00000 n 
+0000000613 00000 n 
+0000000818 00000 n 
+0000001023 00000 n 
+0000001228 00000 n 
+0000001433 00000 n 
+0000001503 00000 n 
+0000001784 00000 n 
+0000001868 00000 n 
+0000004006 00000 n 
+0000005680 00000 n 
+0000007252 00000 n 
+0000008950 00000 n 
+trailer
+<<
+/ID 
+[<5b0376081626c03594283d8c59ef9fe9><5b0376081626c03594283d8c59ef9fe9>]
+% ReportLab generated PDF document -- digest (opensource)
+
+/Info 11 0 R
+/Root 10 0 R
+/Size 18
+>>
+startxref
+10898
+%%EOF

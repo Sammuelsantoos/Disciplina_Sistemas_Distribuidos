@@ -1,4 +1,4 @@
-"""Protocolo simples de requisição-resposta para chamadas RPC em Python."""
+"""Protocolo para arquitetura publicar e assinar em Python."""
 
 from __future__ import annotations
 
@@ -6,8 +6,45 @@ import json
 from typing import Any
 
 
+class EventProtocol:
+    """Mensagem de eventos para canal de publicação."""
+
+    @staticmethod
+    def build_publish(topic: str, payload: dict[str, Any]) -> str:
+        message = {"action": "PUBLISH", "topic": topic, "payload": payload}
+        return json.dumps(message, ensure_ascii=False)
+
+    @staticmethod
+    def build_subscribe(topic: str, subscriber_id: str = "client") -> str:
+        message = {"action": "SUBSCRIBE", "topic": topic, "subscriber_id": subscriber_id}
+        return json.dumps(message, ensure_ascii=False)
+
+    @staticmethod
+    def build_ack(topic: str, status: str, payload: Any = None) -> str:
+        message = {"action": "ACK", "topic": topic, "status": status, "payload": payload}
+        return json.dumps(message, ensure_ascii=False)
+
+    @staticmethod
+    def build_query(query: str, topic: str = "match.events") -> str:
+        message = {"action": "QUERY", "topic": topic, "query": query}
+        return json.dumps(message, ensure_ascii=False)
+
+    @staticmethod
+    def build_notify(topic: str, payload: dict[str, Any]) -> str:
+        message = {"action": "NOTIFY", "topic": topic, "payload": payload}
+        return json.dumps(message, ensure_ascii=False)
+
+    @staticmethod
+    def parse_message(raw_message: str) -> dict[str, Any]:
+        try:
+            data = json.loads(raw_message)
+        except json.JSONDecodeError as exc:
+            raise ValueError("Mensagem inválida para o broker de eventos.") from exc
+        return data
+
+
 class RequestReplyProtocol:
-    """Encapsula a representação em JSON de uma chamada remota."""
+    """Mantém compatibilidade com a camada anterior do projeto."""
 
     @staticmethod
     def build_request(
@@ -28,11 +65,7 @@ class RequestReplyProtocol:
 
     @staticmethod
     def parse_request(payload: str) -> dict[str, Any]:
-        try:
-            data = json.loads(payload)
-        except json.JSONDecodeError as exc:
-            raise ValueError("Payload inválido para chamada RPC.") from exc
-
+        data = json.loads(payload)
         return {
             "message_type": data.get("messageType", "REQUEST"),
             "request_id": data.get("requestId", 1),
@@ -42,12 +75,7 @@ class RequestReplyProtocol:
         }
 
     @staticmethod
-    def build_reply(
-        request_id: int,
-        success: bool,
-        result: Any = None,
-        error: str | None = None,
-    ) -> str:
+    def build_reply(request_id: int, success: bool, result: Any = None, error: str | None = None) -> str:
         payload = {
             "messageType": "REPLY",
             "requestId": request_id,
@@ -59,14 +87,10 @@ class RequestReplyProtocol:
 
 
 def build_request(method: str, *args: str) -> str:
-    """Compatibilidade com a versão mínima anterior do protocolo."""
-    if not args:
-        return f"{method}:"
-    return f"{method}:{':'.join(args)}"
+    return f"{method}:{':'.join(args)}" if args else f"{method}:"
 
 
 def parse_request(payload: str) -> tuple[str, str]:
-    """Compatibilidade com a versão mínima anterior do protocolo."""
     method, separator, argument = payload.partition(":")
     if not separator:
         raise ValueError("Payload inválido para chamada RPC.")

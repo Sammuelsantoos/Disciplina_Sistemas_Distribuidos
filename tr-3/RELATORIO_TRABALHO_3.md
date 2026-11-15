@@ -1,154 +1,181 @@
 # Relatório Acadêmico – Trabalho 3
 
+## Comunicação Indireta em Sistemas Distribuídos: Modelo Publicar e Assinar
+
 ## 1. Introdução
 
-Este trabalho teve como objetivo implementar um exemplo de Remote Procedure Call (RPC) em Python utilizando comunicação por sockets, seguindo a lógica do material de referência do PDF, mas adaptando o cenário para um contexto de futebol e eventos esportivos. A proposta central foi manter o mesmo princípio de comunicação cliente-servidor, porém substituindo o exemplo original de saudação por um sistema de notificações de partidas, com gols, cartões, placar e histórico de eventos.
+Este trabalho foi desenvolvido com foco na comunicação indireta em sistemas distribuídos, seguindo a abordagem de publicar e assinar (publish/subscribe). A estrutura adotada diferencia-se da comunicação direta por chamada remota, pois produtores e consumidores não se conectam diretamente entre si. Em vez disso, ambos interagem por meio de um broker intermediário que recebe as publicações e encaminha as notificações para os assinantes interessados.
 
-A implementação foi organizada para manter a estrutura e os padrões observados nos trabalhos anteriores da disciplina, respeitando a organização por módulos e a separação entre cliente, servidor, serviços e infraestrutura compartilhada.
+O cenário escolhido foi o de eventos esportivos de futebol. A ideia foi representar uma partida em que ações como gols, cartões e consultas ao placar são publicadas em um canal específico e distribuídas para clientes que se inscreveram nesse tópico. Esse modelo representa corretamente o desacoplamento predominante na comunicação indireta.
 
 ## 2. Objetivo do Trabalho
 
-O objetivo principal foi reproduzir de forma didática o conceito de RPC em um ambiente distribuído, utilizando sockets TCP para permitir que um cliente envie uma requisição para o servidor, o servidor execute uma operação remota e devolva uma resposta ao cliente.
+O objetivo principal foi implementar um sistema distribuído em Python para eventos esportivos, seguindo o paradigma publicar e assinar. A solução deveria demonstrar como uma entidade produtora envia eventos para um canal compartilhado enquanto diversas entidades consumidoras absorvem mensagens conforme o tópico em que se inscreveram.
 
-No contexto deste trabalho, a operação remota foi representada por eventos esportivos, como:
-- marcação de gol;
-- registro de cartão;
-- consulta do placar;
-- consulta do histórico de eventos;
-- encerramento da partida.
-
-Assim, o projeto preserva o conceito do PDF, mas adapta a operação para um cenário mais próximo do tema dos trabalhos anteriores da disciplina.
+Os requisitos esperados da solução incluem:
+- publicação de eventos esportivos em um tópico;
+- inscrição de clientes em tópicos de interesse;
+- entrega de notificações assinadas;
+- manutenção do estado da partida;
+- consulta do placar e do histórico de eventos;
+- uso de sockets TCP para comunicação em rede.
 
 ## 3. Fundamentação Teórica
 
-O modelo de RPC é uma forma de abstrair a execução de uma rotina em um sistema remoto como se ela fosse uma chamada local. Em vez do programa cliente lidar diretamente com comunicação em baixo nível, ele envia uma mensagem com a intenção de invocar um método específico. O servidor recebe essa requisição, interpreta o comando, executa a lógica correspondente e retorna o resultado.
+A comunicação indireta é uma abordagem em que os componentes não se comunicam diretamente, mas por meio de um mediador. Esse mediador pode ser um broker, canal, fila ou serviço de distribuição. A principal vantagem é o desacoplamento entre produtores e consumidores, o que permite:
+- desacoplamento espacial;
+- desacoplamento temporal;
+- desacoplamento de sincronização;
+- maior escalabilidade e flexibilidade no sistema.
 
-No contexto de sistemas distribuídos, esse modelo é importante porque permite:
-- encapsular a comunicação de rede;
-- manter a lógica de aplicação isolada;
-- viabilizar uma interface simples entre processos distintos;
-- simular chamadas de funções em máquinas diferentes.
-
-No caso deste trabalho, a implementação foi feita com sockets TCP, em que o cliente e o servidor negociam uma mensagem textual em formato estruturado, e o servidor responde com um payload em JSON contendo o resultado da operação.
+Na arquitetura publicar e assinar, o produtor publica uma mensagem em um tópico. Os consumidores assumem a responsabilidade de se inscrever nesse tópico para receber as notificações relevantes. Esse padrão é muito utilizado em sistemas de alertas, feeds de eventos, canais de atualização e plataformas de mensageria.
 
 ## 4. Arquitetura da Solução
 
-A solução foi organizada em módulos para manter clareza e coesão:
+A arquitetura adotada no projeto é composta por um broker central, que atua como ponto de distribuição de eventos, e por clientes que publicam ou assinam tópicos.
 
-- Cliente: responsável por enviar requisições ao servidor;
-- Servidor: escuta conexões TCP, recebe a requisição e responde;
-- Serviços: contém a lógica de negócio da partida;
-- Modelos compartilhados: definem as estruturas de domínio;
-- Protocolo: padroniza as chamadas RPC em JSON.
+### 4.1 Componentes principais
 
-A estrutura conceitual pode ser resumida da seguinte forma:
+- `AdminClient`: publica eventos relacionados à partida;
+- `ViewerClient`: assina tópicos e recebe as notificações;
+- `MatchEventBroker`: gerencia tópicos e encaminha mensagens;
+- `EventBroker`: implementa a lógica de inscrição e publicação;
+- `MatchService`: atualiza a lógica do placar e do histórico;
+- `EventProtocol`: define o formato JSON das mensagens;
+- `Match` e `MatchEvent`: representam o modelo de domínio da partida e dos eventos esportivos.
 
-Cliente → Socket TCP → Servidor → RPCService → MatchService → Resposta ao Cliente
+A arquitetura segue o fluxo:
+
+Produtor → Broker → Tópico → Assinantes
 
 ## 5. Modelo de Domínio
 
-Para representar a partida de futebol, foram definidos os seguintes conceitos:
+O cenário esportivo foi representado por modelos específicos para facilitar a lógica de negócio e as notificações.
 
-### 5.1 Match
-A classe Match representa a partida em si e contém:
-- nome do time da casa;
-- nome do time visitante;
-- placar da casa;
-- placar do visitante;
-- lista de eventos registrados.
+### 5.1 Partida
+A classe `Match` representa a partida em progresso e contém o estado do jogo, incluindo o placar e o histórico de eventos.
 
-### 5.2 MatchEvent
-A classe MatchEvent representa um evento ocorrido durante a partida, como:
-- tipo do evento;
-- descrição;
-- minuto;
+### 5.2 Evento da partida
+A classe `MatchEvent` encapsula informações como:
+- tipo do evento (gol ou cartão);
 - time envolvido;
-- jogador envolvido.
+- jogador envolvido;
+- minuto da partida;
+- descrição do evento.
 
-Esses modelos foram utilizados para manter o histórico da partida e atualizar o placar a partir da operação remota.
+Esses objetos permitem manter coerência entre o estado da partida e a fase de disseminação dos eventos para os assinantes.
 
-## 6. Protocolo de Comunicação
+## 6. Protocolo e Comunicação
 
-A comunicação foi baseada em mensagens estruturadas em JSON, seguindo a lógica de um RPC de requisição-resposta. Uma requisição contém informações como:
-- tipo da mensagem;
-- identificador da requisição;
-- referência ao objeto remoto;
-- identificador do método;
-- argumentos da operação.
+A comunicação foi modelada em JSON com ações explícitas. O broker recebe mensagens do tipo:
 
-Exemplo de requisição:
+- `SUBSCRIBE`: um cliente se inscreve em um tópico;
+- `PUBLISH`: um produtor publica um evento no tópico;
+- `NOTIFY`: o broker envia a notificação para os assinantes;
+- `QUERY`: consulta do placar ou do histórico;
+- `ACK`: confirmação do broker.
+
+Exemplo de mensagem de publicação:
 
 ```json
 {
-  "messageType": "REQUEST",
-  "requestId": 1,
-  "objectReference": "MatchService",
-  "methodId": "register_goal",
-  "arguments": {
+  "action": "PUBLISH",
+  "topic": "match.events",
+  "payload": {
+    "event_type": "gol",
     "team": "Flamengo",
     "player": "Pedro",
-    "minute": "13'"
+    "minute": "13'",
+    "description": "Pedro marcou para Flamengo aos 13'."
   }
 }
 ```
 
-A resposta do servidor segue o mesmo padrão, informando se a operação foi bem-sucedida e devolvendo o resultado correspondente.
+Quando a publicação entra no broker, a mensagem é disseminada para todos os clientes inscritos no tópico `match.events` usando o comando `NOTIFY`.
 
-## 7. Serviços implementados
+## 7. Serviços Implementados
 
 ### 7.1 MatchService
-O MatchService implementa a lógica de domínio da partida e disponibiliza operações como:
-- register_goal;
-- register_card;
-- get_score;
-- get_events;
-- end_match.
+O `MatchService` foi implementado para controlar o estado da partida. Ele realiza operações como:
+- registrar gol;
+- registrar cartão;
+- atualizar o placar;
+- retornar histórico de eventos;
+- manter o estado consistente para consultas.
 
-### 7.2 RPCService
-O RPCService atua como camada de despacho da chamada remota. Ele parseia a requisição, identifica o método solicitado e encaminha a operação para o MatchService.
+### 7.2 EventBroker
+O `EventBroker` atua como intermediário do sistema. Ele guarda as assinaturas por tópico e entrega as mensagens publicadas para os clientes que assinaram o canal correspondente.
 
-### 7.3 NotifyService
-O NotifyService foi incluído como auxiliar para formatar mensagens de notificação relacionadas aos eventos do jogo.
+### 7.3 Protocolo
+O `EventProtocol` padroniza a troca de mensagens em JSON e permite que os clientes e o broker interpretem corretamente as operações de inscrição, publicação e resposta.
 
-## 8. Fluxo de Execução
+### 7.4 Clientes
+O projeto contempla:
+- `AdminClient`: responsável por publicar eventos da partida;
+- `ViewerClient`: responsável por receber as notificações do tópico assinado.
 
-O fluxo executado pelo sistema é o seguinte:
+## 8. Fluxo de Operação
 
-1. O cliente envia uma mensagem em JSON para o servidor.
-2. O servidor abre uma conexão TCP e recebe o payload.
-3. O servidor chama a camada de RPC.
-4. O serviço correspondente executa a operação.
-5. O estado da partida é atualizado.
-6. O servidor responde ao cliente com o resultado.
+O fluxo de execução do sistema foi definido da seguinte forma:
+
+1. O cliente produtor envia uma mensagem de publicação para o broker.
+2. O broker identifica o tópico e valida a ação.
+3. O serviço de domínio atualiza o estado da partida.
+4. O broker encaminha a mensagem para todos os assinantes daquele tópico.
+5. Os clientes assinantes recebem a notificação e exibem o evento.
+6. O histórico e o placar ficam disponíveis para consultas posteriores.
+
+Esse processo exemplifica o modelo publicar e assinar, em que o produtor não precisa conhecer os consumidores e vice-versa.
 
 ## 9. Casos de Uso
 
-Os principais casos de uso implementados foram:
+Os principais cenários implementados foram:
+- publicação de gol;
+- publicação de cartão;
+- assinatura em canal de eventos;
+- recepção de notificações em tempo real;
+- consulta do placar atual;
+- consulta do histórico de eventos;
+- atualização do estado da partida.
 
-- registro de gol;
-- registro de cartão;
-- consulta de placar;
-- consulta de eventos;
-- encerramento da partida.
+Esses cenários refletem o uso típico de uma aplicação de eventos esportivos em tempo real e demonstram a utilidade do padrão publicar e assinar.
 
-## 10. Testes e Validação
+## 10. Vantagens do Modelo Publicar e Assinar
 
-A aplicação foi validada por meio de testes automatizados em Python usando o módulo unittest. Foram implementados testes para:
-- registro de gol;
-- registro de cartão;
-- serialização e parsing do protocolo;
-- validação do fluxo do serviço.
+A arquitetura escolhida oferece vantagens importantes em relação a comunicação direta:
+- menor acoplamento entre módulos;
+- múltiplos consumidores para um mesmo evento;
+- maior escalabilidade para sistemas distribuídos;
+- melhor suporte a notificações em tempo real;
+- desacoplamento entre produtores e assinantes.
 
-A execução dos testes confirmou que o sistema está correto e atende ao comportamento esperado.
+Essas vantagens são centrais para o trabalho e justificam a adoção da comunicação indireta como padrão de projeto.
 
-## 11. Resultados Obtidos
+## 11. Validação e Testes
 
-A implementação alcançou o objetivo proposto, demonstrando com sucesso o uso de RPC por socket em um cenário de futebol. O servidor recebeu requisições do cliente, executou operações remotas, alterou o estado interno da partida e retornou respostas com sucesso.
+A solução foi validada por testes automatizados em Python para verificar:
+- funcionamento do broker;
+- entrega de eventos para assinantes;
+- atualização do placar;
+- serialização e parsing das mensagens;
+- consistência do fluxo de publicação e notificação.
 
-Além disso, a solução foi organizada de forma modular e compatível com o estilo adotado nos demais trabalhos da disciplina, preservando a organização em diretórios, a arquitetura por módulos e a divisão entre cliente e servidor.
+A execução do conjunto de testes passou com sucesso, confirmando que o mecanismo de publicar e assinar está funcionando de forma coerente dentro da aplicação.
 
-## 12. Conclusão
+## 12. Resultados Obtidos
 
-Este trabalho demonstrou de forma prática o funcionamento de um RPC simples em um ambiente distribuído, mantendo o conceito geral do PDF e adaptando o exemplo para um cenário mais próximo dos demais trabalhos acadêmicos da disciplina. A partir da interação entre cliente e servidor, foi possível observar como a lógica de negócios pode ser executada em um processo distinto e retornar resultados ao cliente de maneira estruturada e organizada.
+A implementação foi bem-sucedida e demonstrou, de forma prática, o funcionamento de uma arquitetura de comunicação indireta. O projeto mostrou que eventos esportivos podem ser publicados em um canal e recebidos por consumidores interessados, sem o acoplamento direto entre eles.
 
-A combinação de sockets, protocolo JSON e módulos de serviço mostrou-se eficaz para representar chamadas remotas em Python, preservando a didática do conceito original e ampliando o contexto para um sistema esportivo realista.
+Essa abordagem está em conformidade com os princípios de comunicação indireta e corresponde ao paradigma que o trabalho 4 exige: publicar e assinar.
+
+## 13. Conclusão
+
+Este trabalho demonstrou a importância da comunicação indireta em sistemas distribuídos utilizando o paradigma publicar e assinar. Em vez de um modelo de comunicação direta e fortemente acoplado, a solução adotada separou produtores, broker e consumidores em um fluxo modular e flexível.
+
+A temática de futebol foi útil para contextualizar o problema e permitir uma implementação didática de eventos em tempo real. O projeto mostrou-se coerente com o conceito acadêmico do trabalho, mantendo um cenário esportivo mas com a arquitetura correta de comunicação indireta.
+
+## 14. Considerações Finais
+
+A implementação desenvolvida evidencia que a comunicação indireta é uma alternativa eficiente para cenários em que há múltiplos consumidores, alta modularização e necessidade de desacoplamento entre componentes. Nesse contexto, o modelo publicar e assinar é mais adequado do que a comunicação direta por chamadas remotas.
+
+Assim, a arquitetura adotada está alinhada com o material de referência e com o requisito central do trabalho: implementar uma solução de comunicação indireta com padrão publicar e assinar, utilizando Python e sockets em um cenário de eventos esportivos.
