@@ -1,0 +1,154 @@
+# Relatório Acadêmico – Trabalho 3
+
+## 1. Introdução
+
+Este trabalho teve como objetivo implementar um exemplo de Remote Procedure Call (RPC) em Python utilizando comunicação por sockets, seguindo a lógica do material de referência do PDF, mas adaptando o cenário para um contexto de futebol e eventos esportivos. A proposta central foi manter o mesmo princípio de comunicação cliente-servidor, porém substituindo o exemplo original de saudação por um sistema de notificações de partidas, com gols, cartões, placar e histórico de eventos.
+
+A implementação foi organizada para manter a estrutura e os padrões observados nos trabalhos anteriores da disciplina, respeitando a organização por módulos e a separação entre cliente, servidor, serviços e infraestrutura compartilhada.
+
+## 2. Objetivo do Trabalho
+
+O objetivo principal foi reproduzir de forma didática o conceito de RPC em um ambiente distribuído, utilizando sockets TCP para permitir que um cliente envie uma requisição para o servidor, o servidor execute uma operação remota e devolva uma resposta ao cliente.
+
+No contexto deste trabalho, a operação remota foi representada por eventos esportivos, como:
+- marcação de gol;
+- registro de cartão;
+- consulta do placar;
+- consulta do histórico de eventos;
+- encerramento da partida.
+
+Assim, o projeto preserva o conceito do PDF, mas adapta a operação para um cenário mais próximo do tema dos trabalhos anteriores da disciplina.
+
+## 3. Fundamentação Teórica
+
+O modelo de RPC é uma forma de abstrair a execução de uma rotina em um sistema remoto como se ela fosse uma chamada local. Em vez do programa cliente lidar diretamente com comunicação em baixo nível, ele envia uma mensagem com a intenção de invocar um método específico. O servidor recebe essa requisição, interpreta o comando, executa a lógica correspondente e retorna o resultado.
+
+No contexto de sistemas distribuídos, esse modelo é importante porque permite:
+- encapsular a comunicação de rede;
+- manter a lógica de aplicação isolada;
+- viabilizar uma interface simples entre processos distintos;
+- simular chamadas de funções em máquinas diferentes.
+
+No caso deste trabalho, a implementação foi feita com sockets TCP, em que o cliente e o servidor negociam uma mensagem textual em formato estruturado, e o servidor responde com um payload em JSON contendo o resultado da operação.
+
+## 4. Arquitetura da Solução
+
+A solução foi organizada em módulos para manter clareza e coesão:
+
+- Cliente: responsável por enviar requisições ao servidor;
+- Servidor: escuta conexões TCP, recebe a requisição e responde;
+- Serviços: contém a lógica de negócio da partida;
+- Modelos compartilhados: definem as estruturas de domínio;
+- Protocolo: padroniza as chamadas RPC em JSON.
+
+A estrutura conceitual pode ser resumida da seguinte forma:
+
+Cliente → Socket TCP → Servidor → RPCService → MatchService → Resposta ao Cliente
+
+## 5. Modelo de Domínio
+
+Para representar a partida de futebol, foram definidos os seguintes conceitos:
+
+### 5.1 Match
+A classe Match representa a partida em si e contém:
+- nome do time da casa;
+- nome do time visitante;
+- placar da casa;
+- placar do visitante;
+- lista de eventos registrados.
+
+### 5.2 MatchEvent
+A classe MatchEvent representa um evento ocorrido durante a partida, como:
+- tipo do evento;
+- descrição;
+- minuto;
+- time envolvido;
+- jogador envolvido.
+
+Esses modelos foram utilizados para manter o histórico da partida e atualizar o placar a partir da operação remota.
+
+## 6. Protocolo de Comunicação
+
+A comunicação foi baseada em mensagens estruturadas em JSON, seguindo a lógica de um RPC de requisição-resposta. Uma requisição contém informações como:
+- tipo da mensagem;
+- identificador da requisição;
+- referência ao objeto remoto;
+- identificador do método;
+- argumentos da operação.
+
+Exemplo de requisição:
+
+```json
+{
+  "messageType": "REQUEST",
+  "requestId": 1,
+  "objectReference": "MatchService",
+  "methodId": "register_goal",
+  "arguments": {
+    "team": "Flamengo",
+    "player": "Pedro",
+    "minute": "13'"
+  }
+}
+```
+
+A resposta do servidor segue o mesmo padrão, informando se a operação foi bem-sucedida e devolvendo o resultado correspondente.
+
+## 7. Serviços implementados
+
+### 7.1 MatchService
+O MatchService implementa a lógica de domínio da partida e disponibiliza operações como:
+- register_goal;
+- register_card;
+- get_score;
+- get_events;
+- end_match.
+
+### 7.2 RPCService
+O RPCService atua como camada de despacho da chamada remota. Ele parseia a requisição, identifica o método solicitado e encaminha a operação para o MatchService.
+
+### 7.3 NotifyService
+O NotifyService foi incluído como auxiliar para formatar mensagens de notificação relacionadas aos eventos do jogo.
+
+## 8. Fluxo de Execução
+
+O fluxo executado pelo sistema é o seguinte:
+
+1. O cliente envia uma mensagem em JSON para o servidor.
+2. O servidor abre uma conexão TCP e recebe o payload.
+3. O servidor chama a camada de RPC.
+4. O serviço correspondente executa a operação.
+5. O estado da partida é atualizado.
+6. O servidor responde ao cliente com o resultado.
+
+## 9. Casos de Uso
+
+Os principais casos de uso implementados foram:
+
+- registro de gol;
+- registro de cartão;
+- consulta de placar;
+- consulta de eventos;
+- encerramento da partida.
+
+## 10. Testes e Validação
+
+A aplicação foi validada por meio de testes automatizados em Python usando o módulo unittest. Foram implementados testes para:
+- registro de gol;
+- registro de cartão;
+- serialização e parsing do protocolo;
+- validação do fluxo do serviço.
+
+A execução dos testes confirmou que o sistema está correto e atende ao comportamento esperado.
+
+## 11. Resultados Obtidos
+
+A implementação alcançou o objetivo proposto, demonstrando com sucesso o uso de RPC por socket em um cenário de futebol. O servidor recebeu requisições do cliente, executou operações remotas, alterou o estado interno da partida e retornou respostas com sucesso.
+
+Além disso, a solução foi organizada de forma modular e compatível com o estilo adotado nos demais trabalhos da disciplina, preservando a organização em diretórios, a arquitetura por módulos e a divisão entre cliente e servidor.
+
+## 12. Conclusão
+
+Este trabalho demonstrou de forma prática o funcionamento de um RPC simples em um ambiente distribuído, mantendo o conceito geral do PDF e adaptando o exemplo para um cenário mais próximo dos demais trabalhos acadêmicos da disciplina. A partir da interação entre cliente e servidor, foi possível observar como a lógica de negócios pode ser executada em um processo distinto e retornar resultados ao cliente de maneira estruturada e organizada.
+
+A combinação de sockets, protocolo JSON e módulos de serviço mostrou-se eficaz para representar chamadas remotas em Python, preservando a didática do conceito original e ampliando o contexto para um sistema esportivo realista.
