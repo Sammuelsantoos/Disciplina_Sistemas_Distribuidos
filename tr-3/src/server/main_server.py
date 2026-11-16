@@ -152,8 +152,9 @@ class MatchEventBroker(EventBroker):
 
                 if query_type == "events":
                     events_list = self.match_service.get_events(match_id)
-                    serialized_events = [evt.to_dict() for evt in events_list]
+                    serialized_events = [vars(evt) for evt in events_list]
                     return EventProtocol.build_ack(topic, "OK", serialized_events)
+
 
                 if query_type == "matches":
                     # pylint: disable=protected-access

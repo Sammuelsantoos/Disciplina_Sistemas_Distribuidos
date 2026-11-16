@@ -1,4 +1,3 @@
-
 """Serviço thread-safe que mantém partidas e seus eventos em memória e em CSV."""
 
 from __future__ import annotations
@@ -17,13 +16,8 @@ class MatchService:
 
     VALID_EVENT_TYPES = {"GOL", "CARD", "END"}
 
-    def __init__(
-        self,
-        storage_path: str = "src/data/event.csv",
-        default_home: str = "Flamengo",
-        default_away: str = "Vasco",
-    ) -> None:
-        """Inicializa o serviço, carrega o histórico e cria a partida padrão (ID 1)."""
+    def __init__(self, storage_path: str = "src/data/event.csv") -> None:
+        """Inicializa o serviço e carrega os eventos históricos armazenados."""
         self._matches: Dict[int, Match] = {}
         self._events: Dict[int, List[MatchEvent]] = defaultdict(list)
         self._event_ids = set()
@@ -39,10 +33,6 @@ class MatchService:
                         self._reload_historical_event(event)
             except (OSError, ValueError, TypeError):
                 pass
-
-        # Mantém o comportamento do 1º código criando a partida padrão (ID 1) se não existir
-        if 1 not in self._matches:
-            self.create_match(match_id=1, home_team=default_home, away_team=default_away)
 
     def create_match(self, match_id: int, home_team: str, away_team: str) -> Match:
         """Cadastra uma partida ainda não existente, iniciando o placar em zero."""
@@ -63,16 +53,16 @@ class MatchService:
             self._matches[normalized_id] = match
             return match
 
-    # --- MÉTODOS ADAPTADOS DO PRIMEIRO CÓDIGO ---
+    # --- MÉTODOS DE ATALHO (COMPATIBILIDADE) ---
 
     def register_goal(
         self, team: str, player: str, minute: str, match_id: int = 1
     ) -> dict:
-        """Atalho compatível com o 1º código para registrar um gol."""
+        """Atalho para registrar um gol gerando ID sequencial automaticamente."""
         with self._lock:
             event_id = self._next_event_id()
             description = f"{player} marcou para {team} aos {minute}."
-            
+
             self.register_event(
                 event_id=event_id,
                 match_id=match_id,
@@ -94,17 +84,17 @@ class MatchService:
     def register_card(
         self, team: str, player: str, minute: str, match_id: int = 1
     ) -> dict:
-        """Atalho compatível com o 1º código para registrar um cartão."""
+        """Atalho para registrar um cartão gerando ID sequencial automaticamente."""
         with self._lock:
             event_id = self._next_event_id()
             description = f"Cartão para {player} do {team} aos {minute}."
-            
+
             self.register_event(
                 event_id=event_id,
                 match_id=match_id,
                 event_type="CARD",
                 description=description,
-                team=player,  # CardEvent espera o nome do jogador
+                team=player,
             )
             match = self.get_match(match_id)
             return {
@@ -143,7 +133,7 @@ class MatchService:
                 "away_score": match.away_score,
             }
 
-    # --- NÚCLEO DO SEGUNDO CÓDIGO (PERSISTÊNCIA E VALIDAÇÃO) ---
+    # --- NÚCLEO DE PERSISTÊNCIA E VALIDAÇÃO ---
 
     def register_event(
         self,
@@ -213,11 +203,11 @@ class MatchService:
                 raise KeyError(f"Partida {normalized_id} não encontrada.")
             return match
 
-    def get_events(self, match_id: int = 1) -> List[dict]:
-        """Retorna a lista de eventos da partida convertida em dicionários."""
+    def get_events(self, match_id: int = 1) -> List[MatchEvent]:
+        """Retorna uma cópia do histórico de eventos (objetos) da partida."""
         self.get_match(match_id)
         with self._lock:
-            return [event.to_dict() for event in self._events[int(match_id)]]
+            return list(self._events[int(match_id)])
 
     def _next_event_id(self) -> int:
         """Gera o próximo ID sequencial seguro sem colidir com o histórico do CSV."""
@@ -228,7 +218,7 @@ class MatchService:
         with self._lock:
             if event.match_id not in self._matches:
                 self._matches[event.match_id] = Match(
-                    event.match_id, "Flamengo", "Vasco"
+                    event.match_id, "Desconhecido", "Desconhecido"
                 )
 
             match = self._matches[event.match_id]
@@ -256,7 +246,7 @@ class MatchService:
                         match.away_score += 1
                 except ValueError:
                     match.home_score += 1
-                
+
     def _factory_event(
         self,
         event_id: int,
@@ -293,12 +283,14 @@ class MatchService:
 
     @staticmethod
     def _validate_team(team: str, field: str) -> str:
+        """Valida se o nome do time enviado é uma string válida e preenchida."""
         if not isinstance(team, str) or not team.strip():
             raise ValueError(f"{field} é obrigatório.")
         return team.strip()
 
     @staticmethod
     def _team_side(match: Match, team: str | None) -> str:
+        """Identifica o lado (mandante ou visitante) do time associado ao gol."""
         if not isinstance(team, str) or not team.strip():
             raise ValueError("Informe o time que marcou o gol.")
         normalized_team = team.strip().casefold()
