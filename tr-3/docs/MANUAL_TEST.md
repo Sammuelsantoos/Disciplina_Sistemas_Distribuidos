@@ -7,8 +7,8 @@ Este guia descreve os procedimentos de validação do sistema distribuído basea
 ## Pré-requisitos
 
 - Python 3.10 ou superior instalado.
-- Terminais abertos na pasta raiz `tr-3`.
-- Para iniciar um teste limpo do zero (opcional):
+- Terminais abertos e posicionados na pasta raiz do projeto (`tr-3`).
+- Para iniciar um teste limpo do zero (opcional), na pasta `tr-3` execute:
   ```bash
   fuser -k 5000/tcp 2>/dev/null; rm -f src/data/event.csv
   ```
@@ -21,8 +21,9 @@ Este teste comprova que o produtor (`admin_client`) envia eventos sem conhecer o
 
 ### 1. Iniciar o Servidor Broker (Terminal 1)
 
+Navegue até a pasta `tr-3` e inicie o servidor Broker:
+
 ```bash
-cd ~/Documentos/github-projects/Disciplina_Sistemas_Distribuidos/tr-3
 python3 -m src.server.main_server
 ```
 
@@ -33,8 +34,9 @@ Servidor Broker Pub/Sub escutando em 127.0.0.1:5000...
 
 ### 2. Iniciar um ou mais Clientes Espectadores (Terminal 2)
 
+Em um segundo terminal, navegue até a pasta `tr-3` e inicie o cliente espectador:
+
 ```bash
-cd ~/Documentos/github-projects/Disciplina_Sistemas_Distribuidos/tr-3
 python3 -m src.client.viewer_client
 ```
 
@@ -48,8 +50,9 @@ Conectado ao Broker (127.0.0.1:5000). Tópico: 'match.events'
 
 ### 3. Operar o Painel Administrativo (Terminal 3)
 
+Em um terceiro terminal, navegue até a pasta `tr-3` e abra o painel administrativo:
+
 ```bash
-cd ~/Documentos/github-projects/Disciplina_Sistemas_Distribuidos/tr-3
 python3 -m src.client.admin_client
 ```
 
@@ -101,7 +104,7 @@ Este teste comprova que produtor e consumidor possuem tempos de vida independent
 
 1. Certifique-se de que **nenhum `viewer_client` esteja em execução** (encerre-os com `Ctrl + C`).
 2. Com o `main_server` (Terminal 1) e o `admin_client` (Terminal 3) ativos, cadastre uma nova partida (ex: **ID `2`**, `Botafogo` x `Fluminense`) e registre um gol (`GOL`).
-3. Após publicar o evento, abra o espectador no **Terminal 2**:
+3. Após publicar o evento, vá ao **Terminal 2** (na pasta `tr-3`) e inicie o espectador:
    ```bash
    python3 -m src.client.viewer_client
    ```
@@ -112,7 +115,7 @@ Este teste comprova que produtor e consumidor possuem tempos de vida independent
 ## Cenário 3: Persistência em Disco (`event.csv`) e Recuperação
 
 1. No **Terminal 1**, encerre o servidor Broker com `Ctrl + C`.
-2. Verifique no terminal se o arquivo CSV foi gerado e contém os lances:
+2. Na pasta `tr-3`, verifique no terminal se o arquivo CSV foi gerado e contém os lances:
    ```bash
    cat src/data/event.csv
    ```
@@ -122,6 +125,6 @@ Este teste comprova que produtor e consumidor possuem tempos de vida independent
 
 ## Problemas Comuns
 
-- **`ModuleNotFoundError`:** Certifique-se de executar os comandos a partir da pasta raiz `tr-3` (um nível acima de `src/`).
+- **`ModuleNotFoundError`:** Certifique-se de estar dentro da pasta raiz `tr-3` (um nível acima de `src/`) antes de executar os comandos.
 - **`ConnectionRefusedError`:** Verifique se o `main_server.py` já está rodando antes de iniciar o `viewer_client.py` ou `admin_client.py`.
 - **`Address already in use`:** Caso a porta `5000` esteja ocupada por uma execução anterior, libere-a no Ubuntu com `fuser -k 5000/tcp` ou inicie o servidor em outra porta usando `--port 5001`.

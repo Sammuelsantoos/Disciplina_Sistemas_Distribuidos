@@ -1,4 +1,4 @@
-# Relatório Acadêmico – Trabalho 3
+# Relatório Técnico – Trabalho 4
 
 ## Comunicação Indireta em Sistemas Distribuídos: Modelo Publicar e Assinar
 
@@ -143,18 +143,19 @@ Antes de acionar o `EventBroker.publish()`, o `MatchEventBroker` enriquece o *pa
 
 ## 8. Fluxo de Operação
 
-Use o código com cuidado.
-1. O servidor MatchEventBroker é iniciado e escuta conexões TCP na porta configurada (5000), carregando eventos prévios do event.csv para a memória e para o histórico do tópico.
-2. O administrador utiliza o menu interativo do SportsAdminClient para enviar um PUBLISH de cadastro de partida (CREATE_MATCH) e registrar lances (GOL, CARD ou END).
-3. A cada lance publicado, o MatchService valida os dados, atualiza o placar em memória e persiste o registro no event.csv.
-4. O Broker armazena a mensagem no histórico do tópico e dissemina a notificação (NOTIFY) para todos os sockets inscritos no momento.
-5. Caso um ViewerClient conecte-se posteriormente, o Broker envia a confirmação (ACK) seguida automaticamente de todos os eventos acumulados no histórico do tópico.
+1. O servidor `MatchEventBroker` é iniciado e escuta conexões TCP na porta configurada (`5000`), carregando eventos prévios do `event.csv` para a memória e para o histórico do tópico.
+2. O administrador utiliza o menu interativo do `SportsAdminClient` para enviar um `PUBLISH` de cadastro de partida (`CREATE_MATCH`) e registrar lances (`GOL`, `CARD` ou `END`).
+3. A cada lance publicado, o `MatchService` valida os dados, atualiza o placar em memória e persiste o registro no `event.csv`.
+4. O Broker armazena a mensagem no histórico do tópico e dissemina a notificação (`NOTIFY`) para todos os sockets inscritos no momento.
+5. Caso um `ViewerClient` conecte-se posteriormente, o Broker envia a confirmação (`ACK`) seguida automaticamente de todos os eventos acumulados no histórico do tópico.
 
 ---
 
 ## 9. Validação e Testes
 
-A validação do sistema foi conduzida por meio de testes funcionais em ambiente Linux (Ubuntu), utilizando múltiplos terminais simultâneos para simular a rede distribuída (conforme roteiro em docs/MANUAL_TEST.md):
+A validação do sistema foi conduzida por meio de testes funcionais em ambiente Linux (Ubuntu), utilizando múltiplos terminais simultâneos para simular a rede distribuída (conforme roteiro em `docs/MANUAL_TEST.md`):
+
+Use o código com cuidado.
 * Teste de desacoplamento espacial e entrega em tempo real: verificação de que o SportsAdminClient envia eventos apenas ao Broker (sem conhecer IPs/portas dos espectadores) e que múltiplos ViewerClient recebem notificações instantaneamente;
 * Teste de desacoplamento temporal (assinante offline): publicação de partidas e gols sem nenhum ViewerClient em execução, comprovando que ao iniciar o espectador posteriormente ele recebe automaticamente os eventos ocorridos enquanto estava desconectado;
 * Teste de integridade de domínio e consultas: validação de regras de negócio (bloqueio de partidas duplicadas, validação de times participantes) e das consultas síncronas de placar, eventos e jogos ativos;
@@ -162,9 +163,25 @@ A validação do sistema foi conduzida por meio de testes funcionais em ambiente
 
 ---
 
-## 10. Vantagens do Modelo Publicar e Assinar
+## 10. Justificativa da Escolha Arquitetural
 
-A adoção da arquitetura publicar e assinar proporcionou benefícios claros ao sistema:
-* **Baixo acoplamento:** novos espectadores podem entrar ou sair da transmissão a qualquer momento sem impactar o produtor ou os demais clientes;
-* **Independência temporal:** consumidores offline não perdem eventos relevantes graças ao armazenamento de histórico no Broker e persistência em disco;
-* **Comunicação orientada a eventos:** elimina a necessidade de polling (consultas repetitivas) por parte dos espectadores para descobrir se houve alteração no placar.
+Para o cenário de monitoramento e transmissão de lances esportivos em tempo real, a arquitetura Publicar-Assinar (Opção B) mostrou-se mais adequada do que as demais alternativas de comunicação indireta:
+* Em relação a Filas de Mensagens (Opção C): filas ponto a ponto entregam cada mensagem a apenas um consumidor (modelo competing consumers). Em uma transmissão esportiva, um mesmo gol precisa ser recebido simultaneamente por todos os espectadores inscritos, comportamento nativo do Pub/Sub.
+* Em relação à Comunicação em Grupo / Multicast (Opção A): o multicast exige gerenciamento complexo de membros e não oferece nativamente retenção de histórico para clientes que entram após o início da partida (desacoplamento temporal).
+* Em relação ao Espaço de Tuplas (Opção D): a leitura associativa em memória compartilhada exigiria que os espectadores realizassem consultas contínuas (polling) ou buscas por padrões, enquanto o Pub/Sub orienta a comunicação por eventos push em tópicos.
+
+---
+
+## 11. Análise de Desempenho (Overhead) e Estratégias de Mitigação
+
+A introdução de um Broker intermediário elimina o acoplamento direto, mas impõe uma sobrecarga (overhead) de desempenho e complexidade operacional em comparação à comunicação ponto a ponto:
+1. **Salto adicional de rede (Extra Hop) e Serialização:** Toda mensagem passa a realizar dois saltos TCP (Produtor → Broker → Consumidores) e sofre múltiplos processos de marshalling/unmarshalling em JSON.
+2. **Contenção por Concorrência e I/O em Disco:** O uso de travas (threading.RLock) para garantir consistência no placar e a escrita síncrona em event.csv a cada evento aumentam a latência de resposta do PUBLISH.
+3. **Ponto Único de Falha (SPOF) e Crescimento de Histórico:** Centralizar o roteamento no Broker concentra o tráfego de rede e o consumo de memória RAM devido à retenção de mensagens para entrega retroativa.
+
+### 11.1 Estratégias de Mitigação
+
+* **Particionamento por Tópicos Granulares:** Em vez de concentrar todos os jogos em um único canal (match.events), utilizar tópicos específicos por partida (ex: match.1, match.2) reduz o tráfego desnecessário enviado aos clientes.
+* **Persistência Assíncrona ou em Lote (Batching):** Desacoplar a escrita no arquivo CSV utilizando uma thread dedicada ou flush periódico reduz o bloqueio de I/O durante picos de eventos.
+* **Limitação do Histórico em Memória (Janela Deslizante / TTL):** Definir um limite máximo de eventos retidos por tópico evita o esgotamento de memória RAM em transmissões de longa duração.
+* **Serialização Binária:** Em cenários de alta escala, substituir JSON textual por formatos binários compactos (como Protocol Buffers ou MessagePack) reduz o tamanho dos pacotes TCP e o tempo de CPU no parsing.
