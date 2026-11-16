@@ -1,65 +1,59 @@
 # Guia de Execução Manual do Sistema (Trabalho 3)
 
-Este guia descreve a execução do sistema distribuído baseado na arquitetura **Publicar/Assinar (Pub/Sub)** em Python com sockets TCP, aplicado ao monitoramento de partidas de futebol em tempo real, com persistência de eventos em arquivo CSV.
+Este guia descreve os procedimentos de validação do sistema distribuído baseado na arquitetura **Publicar/Assinar (Pub/Sub)** em Python com sockets TCP, aplicado ao monitoramento de partidas de futebol em tempo real, com persistência de eventos em arquivo CSV e suporte a entrega retroativa.
 
 ---
 
 ## Pré-requisitos
 
 - Python 3.10 ou superior instalado.
-- Três terminais abertos na pasta raiz `tr-3`.
+- Terminais abertos na pasta raiz `tr-3`.
+- Para iniciar um teste limpo do zero (opcional):
+  ```bash
+  fuser -k 5000/tcp 2>/dev/null; rm -f src/data/event.csv
+  ```
 
 ---
 
-## Passo 1: Iniciar o Servidor Broker
+## Cenário 1: Fluxo Completo em Tempo Real e Desacoplamento Espacial
 
-No primeiro terminal, acesse a pasta do projeto e inicie o servidor central (Broker):
+Este teste comprova que o produtor (`admin_client`) envia eventos sem conhecer o IP/porta dos consumidores (`viewer_client`), comunicando-se exclusivamente via tópico no Broker.
+
+### 1. Iniciar o Servidor Broker (Terminal 1)
 
 ```bash
 cd ~/Documentos/github-projects/Disciplina_Sistemas_Distribuidos/tr-3
 python3 -m src.server.main_server
 ```
 
-*(Opcional: é possível especificar `--host`, `--port` e `--storage`, por padrão `127.0.0.1:5000` e `src/data/event.csv`).*
-
-O servidor ficará escutando conexões e exibirá:
-
+Saída esperada:
 ```text
 Servidor Broker Pub/Sub escutando em 127.0.0.1:5000...
 ```
 
----
-
-## Passo 2: Iniciar o Cliente Espectador (Subscriber)
-
-Em um segundo terminal, inicie o cliente assinante para acompanhar as notificações ao vivo no tópico `match.events`:
+### 2. Iniciar um ou mais Clientes Espectadores (Terminal 2)
 
 ```bash
 cd ~/Documentos/github-projects/Disciplina_Sistemas_Distribuidos/tr-3
 python3 -m src.client.viewer_client
 ```
 
-*(Caso queira filtrar uma partida específica, utilize `--match-id 1` ou altere o tópico com `--topic`).*
+*(Dica: abra um segundo espectador em outra aba para validar múltiplos assinantes simultâneos).*
 
-A saída inicial esperada no terminal do espectador é:
-
+Saída esperada:
 ```text
 Conectado ao Broker (127.0.0.1:5000). Tópico: 'match.events'
 [BROKER] Inscrição confirmada (SUBSCRIBED)
 ```
 
----
-
-## Passo 3: Iniciar o Painel Administrativo (Publisher)
-
-Em um terceiro terminal, abra o painel interativo de administração para cadastrar partidas, publicar lances e realizar consultas:
+### 3. Operar o Painel Administrativo (Terminal 3)
 
 ```bash
 cd ~/Documentos/github-projects/Disciplina_Sistemas_Distribuidos/tr-3
 python3 -m src.client.admin_client
 ```
 
-### Roteiro de Teste no Menu Interativo
+Execute as ações abaixo no menu interativo:
 
 1. **Cadastrar partida (Opção `1`):**
    - **ID da partida:** `1`
@@ -80,30 +74,18 @@ python3 -m src.client.admin_client
    - **Jogador advertido:** `Vegetti`
    - **Descrição:** `Cartão amarelo para Vegetti`
 
-4. **Realizar consultas síncronas:**
-   - Utilize a **Opção `3`** para consultar o placar consolidado da partida `1`.
-   - Utilize a **Opção `4`** para listar o histórico completo de eventos da partida `1`.
-   - Utilize a **Opção `5`** para listar todas as partidas ativas.
+4. **Validar consultas síncronas:**
+   - **Opção `3` (ID `1`):** Exibe `Placar (Jogo 1): Flamengo 1 x 0 Vasco`.
+   - **Opção `4` (ID `1`):** Lista os eventos `[GOL]` e `[CARD]` registrados.
+   - **Opção `5`:** Lista todas as partidas cadastradas em memória.
 
 5. **Encerrar partida (Opção `2`):**
    - **ID da partida:** `1`
    - **Tipo:** `END`
    - **Descrição:** `Fim de jogo`
 
----
+### Verificação Esperada no Terminal do Espectador (`viewer_client`):
 
-## Verificação Esperada
-
-### No terminal do Servidor Broker:
-```text
-Novo assinante no tópico 'match.events' (Total: 1)
-Partida cadastrada: [1] Flamengo x Vasco
-Evento salvo no CSV: [GOL] Pedro marcou aos 15'
-Evento salvo no CSV: [CARD] Cartão amarelo para Vegetti
-Evento salvo no CSV: [END] Fim de jogo
-```
-
-### No terminal do Cliente Espectador (`viewer_client`):
 ```text
 Partida cadastrada: [1] Flamengo x Vasco
 [GOL] [1] Flamengo 1 x 0 Vasco - Pedro marcou aos 15'
@@ -111,8 +93,30 @@ Partida cadastrada: [1] Flamengo x Vasco
 [END] [1] Flamengo 1 x 0 Vasco - Fim de jogo
 ```
 
-### Persistência em Disco (`event.csv`):
-Ao encerrar ou inspecionar o arquivo `src/data/event.csv`, os eventos registrados estarão persistidos linha a linha no formato CSV, permitindo que o Broker recarregue o histórico automaticamente caso seja reiniciado.
+---
+
+## Cenário 2: Prova de Desacoplamento Temporal (Assinante Offline)
+
+Este teste comprova que produtor e consumidor possuem tempos de vida independentes: eventos publicados enquanto o espectador está desligado são armazenados pelo Broker e entregues assim que ele se conecta.
+
+1. Certifique-se de que **nenhum `viewer_client` esteja em execução** (encerre-os com `Ctrl + C`).
+2. Com o `main_server` (Terminal 1) e o `admin_client` (Terminal 3) ativos, cadastre uma nova partida (ex: **ID `2`**, `Botafogo` x `Fluminense`) e registre um gol (`GOL`).
+3. Após publicar o evento, abra o espectador no **Terminal 2**:
+   ```bash
+   python3 -m src.client.viewer_client
+   ```
+4. **Verificação esperada:** Logo após a mensagem `[BROKER] Inscrição confirmada (SUBSCRIBED)`, o espectador receberá automaticamente o histórico acumulado, exibindo a partida `2` e o gol ocorrido enquanto estava offline.
+
+---
+
+## Cenário 3: Persistência em Disco (`event.csv`) e Recuperação
+
+1. No **Terminal 1**, encerre o servidor Broker com `Ctrl + C`.
+2. Verifique no terminal se o arquivo CSV foi gerado e contém os lances:
+   ```bash
+   cat src/data/event.csv
+   ```
+3. Inicie o servidor novamente (`python3 -m src.server.main_server`) e conecte um novo `viewer_client` ou consulte a **Opção `4`** no `admin_client` para confirmar que o histórico persistido foi recarregado do disco.
 
 ---
 
@@ -120,4 +124,4 @@ Ao encerrar ou inspecionar o arquivo `src/data/event.csv`, os eventos registrado
 
 - **`ModuleNotFoundError`:** Certifique-se de executar os comandos a partir da pasta raiz `tr-3` (um nível acima de `src/`).
 - **`ConnectionRefusedError`:** Verifique se o `main_server.py` já está rodando antes de iniciar o `viewer_client.py` ou `admin_client.py`.
-- **`Address already in use`:** Caso a porta `5000` esteja ocupada por uma execução anterior, libere-a no Linux com `fuser -k 5000/tcp` ou inicie o servidor em outra porta usando `--port 5001`.
+- **`Address already in use`:** Caso a porta `5000` esteja ocupada por uma execução anterior, libere-a no Ubuntu com `fuser -k 5000/tcp` ou inicie o servidor em outra porta usando `--port 5001`.

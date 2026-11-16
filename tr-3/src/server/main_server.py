@@ -44,10 +44,25 @@ class MatchEventBroker(EventBroker):
     """Broker especializado em eventos esportivos que integra Pub/Sub e MatchService."""
 
     def __init__(self, storage_path: str = "src/data/event.csv") -> None:
-        """Inicializa o broker, o serviço de partidas e a trava de concorrência."""
+        """Inicializa o broker, o serviço de partidas e sincroniza o histórico."""
         super().__init__()
         self.match_service = MatchService(storage_path=storage_path)
         self.lock = threading.Lock()
+        self._sync_csv_history()
+
+    def _sync_csv_history(self, default_topic: str = "match.events") -> None:
+        """Carrega eventos persistidos no CSV para o histórico de entrega tardia."""
+        # pylint: disable=protected-access
+        for match_id, events in self.match_service._events.items():
+            for evt in events:
+                payload = {
+                    "event_type": evt.event_type,
+                    "match_id": match_id,
+                    "description": evt.description,
+                }
+                self.history[default_topic].append(
+                    {"topic": default_topic, "payload": payload}
+                )
 
     def handle_message(self, connection: socket.socket, message: dict) -> str | None:
         """Roteia as ações SUBSCRIBE, PUBLISH e QUERY recebidas dos clientes."""
@@ -67,15 +82,20 @@ class MatchEventBroker(EventBroker):
             topic, "UNKNOWN_ACTION", {"message": f"Ação '{action}' desconhecida"}
         )
 
-    def _handle_subscribe(self, connection: socket.socket, topic: str) -> str:
-        """Inscreve um cliente em um tópico específico."""
+    def _handle_subscribe(self, connection: socket.socket, topic: str) -> None:
+        """Envia confirmação (ACK), inscreve o cliente e entrega o histórico."""
         with self.lock:
+            current_subs = len(self.subscriptions.get(topic, [])) + 1
+            ack_msg = EventProtocol.build_ack(
+                topic, "SUBSCRIBED", {"subscribers": current_subs}
+            )
+            # Envia o ACK antes das mensagens retroativas para manter a ordem visual
+            connection.sendall((ack_msg + "\n").encode("utf-8"))
             self.subscribe(topic, connection)
             total_subs = len(self.subscriptions.get(topic, []))
+
         print(f"Novo assinante no tópico '{topic}' (Total: {total_subs})")
-        return EventProtocol.build_ack(
-            topic, "SUBSCRIBED", {"subscribers": total_subs}
-        )
+        return None
 
     def _handle_publish(self, topic: str, payload: dict) -> str:
         """Processa a publicação de novas partidas ou eventos, salva no CSV e notifica."""
@@ -98,7 +118,6 @@ class MatchEventBroker(EventBroker):
                     player = payload.get("player")
                     minute = payload.get("minute")
 
-                    # Monta a descrição automática se não vier pronta no payload
                     description = payload.get("description")
                     if not description:
                         if event_type == "GOL":
@@ -108,7 +127,6 @@ class MatchEventBroker(EventBroker):
                         else:
                             description = "Partida encerrada."
 
-                    # Para CARD, o MatchService espera o jogador no parâmetro 'team' (context_value)
                     context_val = player if (event_type == "CARD" and player) else team
 
                     self.match_service.register_event(
@@ -121,6 +139,8 @@ class MatchEventBroker(EventBroker):
 
                     match_obj = self.match_service.get_match(match_id)
                     payload["description"] = description
+                    payload["home_team"] = match_obj.home_team
+                    payload["away_team"] = match_obj.away_team
                     payload["home_score"] = match_obj.home_score
                     payload["away_score"] = match_obj.away_score
                     print(f"Evento salvo no CSV: [{event_type}] {description}")
@@ -128,8 +148,9 @@ class MatchEventBroker(EventBroker):
             except (KeyError, ValueError) as error:
                 return EventProtocol.build_ack(topic, "ERROR", {"message": str(error)})
 
-        # Dispara a mensagem para todos os assinantes do tópico
-        published = self.publish(topic, payload)
+            # Dispara a mensagem para todos os assinantes e salva no histórico do tópico
+            published = self.publish(topic, payload)
+
         return EventProtocol.build_ack(topic, "PUBLISHED", published)
 
     def _handle_query(self, topic: str, message: dict) -> str:
@@ -154,7 +175,6 @@ class MatchEventBroker(EventBroker):
                     events_list = self.match_service.get_events(match_id)
                     serialized_events = [vars(evt) for evt in events_list]
                     return EventProtocol.build_ack(topic, "OK", serialized_events)
-
 
                 if query_type == "matches":
                     # pylint: disable=protected-access

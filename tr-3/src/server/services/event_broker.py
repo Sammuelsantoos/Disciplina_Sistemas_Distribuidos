@@ -1,8 +1,8 @@
 """Módulo base do Broker de eventos para arquitetura Publicar/Assinar (Pub/Sub).
 
 Este módulo fornece o gerenciamento de inscrições por tópico, armazenamento
-de histórico em memória e distribuição de notificações para assinantes via socket
-ou objetos locais.
+de histórico em memória e distribuição de notificações (em tempo real e
+retroativas) para assinantes via socket ou objetos locais.
 """
 
 from __future__ import annotations
@@ -21,9 +21,14 @@ class EventBroker:
         self.history: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
     def subscribe(self, topic: str, subscriber: Any) -> bool:
-        """Inscreve um cliente ou objeto ouvinte em um tópico específico."""
+        """Inscreve um cliente em um tópico e entrega o histórico acumulado."""
         if subscriber not in self.subscriptions[topic]:
             self.subscriptions[topic].append(subscriber)
+
+        for past_message in list(self.history.get(topic, [])):
+            if not self._deliver(topic, subscriber, past_message):
+                break
+
         return True
 
     def unsubscribe(self, topic: str, subscriber: Any) -> None:
@@ -39,18 +44,28 @@ class EventBroker:
         self.history[topic].append(message)
 
         for subscriber in list(self.subscriptions.get(topic, [])):
-            if hasattr(subscriber, "sendall"):
-                try:
-                    notification = {
-                        "action": "NOTIFY",
-                        "topic": topic,
-                        "payload": payload,
-                    }
-                    payload_json = json.dumps(notification, ensure_ascii=False) + "\n"
-                    subscriber.sendall(payload_json.encode("utf-8"))
-                except (OSError, TypeError):
-                    self.unsubscribe(topic, subscriber)
-            elif hasattr(subscriber, "receive"):
-                subscriber.receive(message)
+            self._deliver(topic, subscriber, message)
 
         return message
+
+    def _deliver(self, topic: str, subscriber: Any, message: dict[str, Any]) -> bool:
+        """Envia uma notificação individual para o assinante via socket ou callback."""
+        if hasattr(subscriber, "sendall"):
+            try:
+                notification = {
+                    "action": "NOTIFY",
+                    "topic": topic,
+                    "payload": message["payload"],
+                }
+                payload_json = json.dumps(notification, ensure_ascii=False) + "\n"
+                subscriber.sendall(payload_json.encode("utf-8"))
+                return True
+            except (OSError, TypeError):
+                self.unsubscribe(topic, subscriber)
+                return False
+
+        if hasattr(subscriber, "receive"):
+            subscriber.receive(message)
+            return True
+
+        return False
