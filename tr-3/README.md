@@ -31,12 +31,14 @@ O sistema é dividido em três camadas principais:
 
 Fluxo principal de dados:
 
-```text
-SportsAdminClient (Publisher) ──► MatchEventBroker ──► ViewerClient(s) (Subscribers)
-                                         │
-                                         ▼
-                                   MatchService ──► src/data/event.csv
+```mermaid
+flowchart LR
+    Admin[SportsAdminClient<br/>Producer] -->|PUBLISH / QUERY| Broker[MatchEventBroker<br/>EventBroker]
+    Broker -->|NOTIFY| Viewer[ViewerClient<br/>Subscribers]
+    Broker <-->|Atualiza / Consulta| Service[MatchService]
+    Service <-->|Persiste / Lê| CSV[(src/data/event.csv)]
 ```
+
 
 ---
 
