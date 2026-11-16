@@ -1,6 +1,11 @@
-"""Modelos de domínio do sistema de eventos esportivos."""
+"""Pacote de modelos de dados compartilhados do sistema esportivo."""
 
-from src.shared.models.match import Match
-from src.shared.models.match_event import MatchEvent
+from .match import Match
+from .match_event import MatchEvent, GoalEvent, CardEvent
 
-__all__ = ["Match", "MatchEvent"]
+__all__ = [
+    "Match",
+    "MatchEvent",
+    "GoalEvent",
+    "CardEvent",
+]

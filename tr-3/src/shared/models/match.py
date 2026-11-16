@@ -1,26 +1,68 @@
-from __future__ import annotations
+"""Módulo de modelo para partidas esportivas (Match).
 
-from dataclasses import dataclass, field
+Gerencia a estrutura, placar, serialização e desserialização de dados
+de jogos de futebol em formatos textuais como CSV.
+"""
 
-from src.shared.models.match_event import MatchEvent
 
-
-@dataclass
 class Match:
-    home_team: str
-    away_team: str
-    home_score: int = 0
-    away_score: int = 0
-    events: list[MatchEvent] = field(default_factory=list)
+    """Representa uma partida de futebol, controlando placar e equipes."""
 
-    def add_event(self, event: MatchEvent) -> None:
-        self.events.append(event)
+    def __init__(
+        self,
+        match_id: int,
+        home_team: str,
+        away_team: str,
+        home_score: int = 0,
+        away_score: int = 0
+    ):
+        """
+        Representa a classe para armazenar os dados de uma partida.
+        """
+        self.match_id = int(match_id)
+        self.home_team = str(home_team)
+        self.away_team = str(away_team)
+        self.home_score = int(home_score)
+        self.away_score = int(away_score)
 
-    def to_dict(self) -> dict:
-        return {
-            "home_team": self.home_team,
-            "away_team": self.away_team,
-            "home_score": self.home_score,
-            "away_score": self.away_score,
-            "events": [event.to_dict() for event in self.events],
-        }
+    def to_csv_line(self) -> str:
+        """
+        Serializa o objeto Match em uma linha de texto no formato CSV.
+        Inclui uma quebra de linha ao final para demarcar o fim do registro.
+        """
+        return (
+            f"{self.match_id},{self.home_team},{self.away_team},"
+            f"{self.home_score},{self.away_score}\n"
+        )
+
+    @staticmethod
+    def from_csv_line(line: str):
+        """
+        Desserializa uma linha de texto CSV e reconstrói um objeto Match
+        em memória. Retorna None se a linha for inválida ou vazia.
+        """
+        clean_line = line.strip()
+        if not clean_line:
+            return None
+
+        try:
+            parts = clean_line.split(',', 4)
+            if len(parts) < 5:
+                return None
+
+            return Match(
+                match_id=int(parts[0]),
+                home_team=parts[1],
+                away_team=parts[2],
+                home_score=int(parts[3]),
+                away_score=int(parts[4])
+            )
+        except (ValueError, IndexError):
+            return None
+
+    def __repr__(self) -> str:
+        """Representação textual amigável do objeto para depuração e logs."""
+        return (
+            f"Match(ID={self.match_id}, {self.home_team} {self.home_score} "
+            f"x {self.away_score} {self.away_team})"
+        )
