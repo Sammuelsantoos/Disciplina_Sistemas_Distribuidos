@@ -1,196 +1,178 @@
 # Trabalho 3 – Comunicação Indireta em Python com Publicar e Assinar
 
-Este projeto implementa a arquitetura de comunicação indireta baseada no modelo publicar e assinar, aplicada ao cenário de eventos de futebol. A solução utiliza um broker central para receber mensagens publicadas em tópicos e distribuí-las para clientes que se inscreveram no mesmo canal.
+Este projeto implementa uma arquitetura de comunicação indireta baseada no modelo **Publicar e Assinar (Pub/Sub)** em Python, aplicada ao monitoramento e transmissão de eventos esportivos em tempo real. A solução utiliza um **Broker central** via sockets TCP para receber publicações em tópicos, persistir o histórico em arquivo CSV e distribuir notificações de forma assíncrona para os clientes inscritos.
 
-Ao contrário de uma comunicação direta por chamada remota, os produtores e consumidores não se conhecem diretamente. O canal intermediário desempenha o papel de mediador entre eles, respeitando a ideia de desacoplamento espacial, temporal e de sincronização, conforme a fundamentação do material de referência.
+Ao contrário da comunicação direta via RPC, produtores e consumidores não precisam conhecer a identidade ou o endereço um do outro. O Broker atua como mediador, garantindo o desacoplamento espacial, temporal e de sincronização entre os componentes.
 
 ---
 
 ## Objetivo
 
-Implementar um sistema distribuído didático em Python para eventos esportivos, usando:
+Implementar um sistema distribuído em Python para gerenciamento e transmissão de partidas de futebol, contemplando:
 
-- um broker intermediário;
-- tópicos de assinatura (`match.events`, `match.status`);
-- clientes produtores e consumidores;
-- sockets TCP para comunicação em rede;
-- protocolo JSON para encapsular as mensagens;
-- manutenção de histórico e estado da partida.
+- Um servidor Broker centralizado e *thread-safe* (`MatchEventBroker`);
+- Comunicação baseada em tópicos de assinatura (como `match.events`);
+- Painel administrativo interativo (Producer / `SportsAdminClient`) e cliente espectador em tempo real (Subscriber / `ViewerClient`);
+- Protocolo de mensagens estruturado em JSON delimitado por linha (`EventProtocol`);
+- Gerenciamento de múltiplas partidas simultâneas, placar e histórico de eventos (`MatchService`);
+- Persistência automática de eventos em disco (`src/data/event.csv`) por meio de streams customizados (`MatchEventInputStream` e `MatchEventOutputStream`).
 
 ---
 
-## Arquitetura da solução
+## Arquitetura da Solução
 
-O sistema é composto por:
+O sistema é dividido em três camadas principais:
 
-- Producer / AdminClient: publica eventos da partida, como gol ou cartão;
-- Broker: recebe as publicações e encaminha para os assinantes;
-- ViewerClient: assina um tópico e recebe notificações em tempo real;
-- MatchService: atualiza o placar e o histórico de eventos;
-- EventBroker: gerencia tópicos, assinaturas e disseminação;
-- EventProtocol: estrutura o formato das mensagens em JSON.
+- **`SportsAdminClient` (Producer):** Interface interativa via linha de comando (CLI) utilizada para cadastrar partidas, publicar eventos (`GOL`, `CARD`, `END`) e realizar consultas síncronas (`QUERY`).
+- **`MatchEventBroker` & `EventBroker` (Broker):** Gerencia conexões TCP concorrentes, mantém a tabela de assinaturas por tópico, coordena a atualização de estado com o `MatchService` e dissemina notificações (`NOTIFY`) aos espectadores.
+- **`ViewerClient` (Subscriber):** Conecta-se ao Broker, inscreve-se em um tópico de interesse e exibe os lances e placares atualizados em formato textual limpo no terminal.
+- **`MatchService`:** Camada de negócio *thread-safe* (`threading.RLock`) responsável por validar times e eventos, atualizar placares e persistir/recarregar o histórico no arquivo CSV.
+- **`EventProtocol`:** Responsável pela serialização (marshalling) e desserialização (unmarshalling) das mensagens JSON trocadas na rede.
 
-Fluxo principal:
+Fluxo principal de dados:
 
 ```text
-AdminClient -> broker -> subscribers
-       \-> MatchService (atualiza placar/histórico)
+SportsAdminClient (Publisher) ──► MatchEventBroker ──► ViewerClient(s) (Subscribers)
+                                         │
+                                         ▼
+                                   MatchService ──► src/data/event.csv
 ```
 
 ---
 
-## Estrutura do projeto
+## Estrutura do Projeto
 
-```bash
+```text
 tr-3/
 ├── README.md
 ├── RELATORIO_TRABALHO_3.md
-├── RELATORIO_TRABALHO_3.pdf
 ├── docs/
-│   ├── MANUAL_TEST.md
-│   └── REPORT.md
-├── src/
-│   ├── __init__.py
-│   ├── client/
-│   │   ├── __init__.py
-│   │   ├── admin_client.py
-│   │   └── viewer_client.py
-│   ├── server/
-│   │   ├── __init__.py
-│   │   ├── main_server.py
-│   │   └── services/
-│   │       ├── __init__.py
-│   │       ├── event_broker.py
-│   │       └── match_service.py
-│   └── shared/
-│       ├── __init__.py
-│       ├── infra/
-│       │   ├── __init__.py
-│       │   └── protocol.py
-│       ├── models/
-│       │   ├── __init__.py
-│       │   ├── match.py
-│       │   └── match_event.py
-│       └── streams/
-├── tests/
-│   └── unit/
-│       ├── __init__.py
-│       ├── test_event_broker.py
-│       ├── test_match_service.py
-│       ├── test_protocol.py
-│       └── test_hello_service.py
-└── pom.xml
+│   └── MANUAL_TEST.md
+└── src/
+    ├── __init__.py
+    ├── client/
+    │   ├── __init__.py
+    │   ├── admin_client.py
+    │   └── viewer_client.py
+    ├── data/
+    │   └── event.csv          # Gerado automaticamente ao registrar eventos
+    ├── server/
+    │   ├── __init__.py
+    │   ├── main_server.py
+    │   └── services/
+    │       ├── __init__.py
+    │       ├── event_broker.py
+    │       ├── match_service.py
+    │       └── notify_service.py
+    └── shared/
+        ├── __init__.py
+        ├── infra/
+        │   ├── __init__.py
+        │   └── protocol.py
+        ├── models/
+        │   ├── __init__.py
+        │   ├── match.py
+        │   └── match_event.py
+        └── streams/
+            ├── __init__.py
+            ├── event_input.py
+            └── event_output.py
 ```
 
 ---
 
-## Componentes principais
+## Componentes Principais
 
-- `MatchEventBroker`: mantém a lógica do broker, aceita inscrições e publica eventos em tópicos;
-- `EventBroker`: implementa a estrutura de tópicos e envio de notificações;
-- `MatchService`: controla o placar, o histórico e a lógica de gol/cartão;
-- `EventProtocol`: serializa e desserializa mensagens em JSON;
-- `AdminClient`: publica eventos da partida;
-- `ViewerClient`: se inscreve em tópicos e recebe notificações;
-- `Match` e `MatchEvent`: modelam o domínio de futebol.
+- **`MatchEventBroker` (`src/server/main_server.py`):** Servidor TCP multithread que interpreta as ações `SUBSCRIBE`, `PUBLISH` e `QUERY`, integra-se ao `MatchService` e enriquece os payloads antes da notificação.
+- **`EventBroker` (`src/server/services/event_broker.py`):** Implementa o núcleo do padrão Pub/Sub (inscrição, cancelamento, histórico em memória e envio via socket com tratamento de desconexão).
+- **`MatchService` (`src/server/services/match_service.py`):** Controla o ciclo de vida das partidas, aplica o padrão Factory para instanciar eventos específicos (`GoalEvent`, `CardEvent`, `MatchEvent`) e gerencia a leitura/escrita no CSV.
+- **`EventProtocol` (`src/shared/infra/protocol.py`):** Define os métodos estáticos `build_publish`, `build_subscribe`, `build_query`, `build_notify`, `build_ack` e `parse_message`.
+- **`SportsAdminClient` (`src/client/admin_client.py`):** Menu interativo no terminal para operação completa do sistema pelo administrador.
+- **`ViewerClient` (`src/client/viewer_client.py`):** Cliente espectador contínuo que formata as notificações recebidas em tempo real.
+- **`Match`, `MatchEvent`, `GoalEvent`, `CardEvent` (`src/shared/models/`):** Modelos de domínio com suporte a serialização CSV.
+- **`MatchEventInputStream` e `MatchEventOutputStream` (`src/shared/streams/`):** Fluxos de entrada e saída para leitura e gravação persistente dos eventos em disco.
 
 ---
 
-## Protocolo e comunicação
+## Protocolo e Comunicação
 
-A comunicação é baseada em JSON, com as seguintes ações principais:
+A comunicação ocorre sobre TCP utilizando objetos JSON delimitados por quebra de linha (`\n`), com as seguintes ações:
 
-- `SUBSCRIBE`: o cliente se inscreve em um tópico;
-- `PUBLISH`: o produtor envia um evento para um tópico;
-- `NOTIFY`: o broker encaminha a mensagem aos assinantes;
-- `QUERY`: consulta estado da partida ou histórico;
-- `ACK`: resposta do broker confirmando a operação.
+- **`SUBSCRIBE`:** Inscreve o cliente em um tópico (`match.events`).
+- **`PUBLISH`:** Envia a criação de uma partida (`CREATE_MATCH`) ou um lance (`GOL`, `CARD`, `END`).
+- **`NOTIFY`:** Mensagem *push* enviada pelo Broker a todos os assinantes do tópico com o placar atualizado.
+- **`QUERY`:** Consulta síncrona de placar (`score`), histórico de lances (`events`) ou partidas ativas (`matches`).
+- **`ACK`:** Resposta de confirmação ou erro enviada pelo Broker ao cliente solicitante.
 
-Exemplo de publicação:
+### Exemplo de Publicação (`PUBLISH`)
 
 ```json
 {
   "action": "PUBLISH",
   "topic": "match.events",
   "payload": {
-    "event_type": "gol",
+    "event_type": "GOL",
+    "match_id": 1,
     "team": "Flamengo",
     "player": "Pedro",
-    "minute": "13'",
-    "description": "Pedro marcou para Flamengo aos 13'."
+    "description": "Pedro marcou aos 15'"
   }
 }
 ```
 
-Exemplo de notificação enviada ao assinante:
+### Exemplo de Notificação aos Assinantes (`NOTIFY`)
 
 ```json
 {
   "action": "NOTIFY",
   "topic": "match.events",
   "payload": {
-    "event_type": "gol",
+    "event_type": "GOL",
+    "match_id": 1,
     "team": "Flamengo",
     "player": "Pedro",
-    "minute": "13'",
-    "description": "Pedro marcou para Flamengo aos 13'."
+    "description": "Pedro marcou aos 15'",
+    "home_team": "Flamengo",
+    "away_team": "Vasco",
+    "home_score": 1,
+    "away_score": 0
   }
 }
 ```
 
 ---
 
-## Como executar
+## Como Executar
 
-### 1. Iniciar o broker
+Abra **três terminais** na pasta raiz do projeto (`tr-3`):
 
-```bash
-cd /home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3
-PYTHONPATH=/home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3 python3 -m src.server.main_server
-```
-
-### 2. Assinar um tópico
+### 1. Iniciar o Servidor Broker (Terminal 1)
 
 ```bash
-cd /home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3
-PYTHONPATH=/home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3 python3 -m src.client.viewer_client --topic match.events
+python3 -m src.server.main_server --host 127.0.0.1 --port 5000
 ```
 
-### 3. Publicar um evento
+### 2. Iniciar o Cliente Espectador / Subscriber (Terminal 2)
 
 ```bash
-cd /home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3
-PYTHONPATH=/home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3 python3 -m src.client.admin_client --action goal --team Flamengo --player Pedro --minute "13'" --topic match.events
+python3 -m src.client.viewer_client --host 127.0.0.1 --port 5000 --topic match.events
 ```
 
-### 4. Consultar o placar
+### 3. Abrir o Painel Administrativo / Publisher (Terminal 3)
 
 ```bash
-cd /home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3
-PYTHONPATH=/home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3 python3 -m src.client.admin_client --action query-score
+python3 -m src.client.admin_client --host 127.0.0.1 --port 5000
 ```
+
+No menu interativo exibido no Terminal 3, basta escolher a opção desejada:
+- **`1`** para cadastrar uma nova partida;
+- **`2`** para registrar eventos (`GOL`, `CARD` ou `END`);
+- **`3`** para consultar o placar de uma partida;
+- **`4`** para listar o histórico de eventos de uma partida;
+- **`5`** para listar todas as partidas ativas.
 
 ---
 
-## Validação
+## Observação Arquitetural
 
-Os testes automatizados do projeto validam:
-
-- publicação de eventos no broker;
-- entrega de notificações para assinantes;
-- atualização do placar e do histórico;
-- serialização/parse do protocolo JSON;
-- funcionamento do cenário de eventos esportivos em arquitetura indireta.
-
-Comando de verificação:
-
-```bash
-cd /home/smmy/sd/atividades_sd/Disciplina_Sistemas_Distribuidos/tr-3
-python3 -m unittest discover -s tests -p "*.py" -v
-```
-
----
-
-## Observação final
-
-Este projeto está totalmente alinhado ao modelo de comunicação indireta do trabalho 4: ele não implementa uma chamada remota direta, mas sim um broker que recebe eventos públicos e distribui notificações para consumidores interessados. Esse é o comportamento esperado de uma arquitetura publicar e assinar em sistemas distribuídos.
+Este projeto reflete fielmente o modelo de **comunicação indireta (Publicar/Assinar)**: os produtores publicam eventos sem acoplamento com os consumidores, enquanto o Broker atua como intermediário responsável pelo roteamento por tópicos, manutenção de estado em memória e persistência em arquivo CSV.
